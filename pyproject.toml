@@ -1,0 +1,174 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "TheAnimeScripter"
+dynamic = ["version"]
+description = "A high-performance tool for video upscaling, interpolation, depth estimation, and more."
+readme = "README.md"
+keywords = [
+    "fluent-design",
+    "interpolation",
+    "upscaling",
+    "segmentation",
+    "deduplication",
+]
+requires-python = "==3.13.*"
+license = { file = "LICENSE" }
+authors = [{ name = "NevermindNilas" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "applib",
+
+    # Core dependencies
+    "setuptools==80.10.2",
+    "wheel-stub==0.5.0",
+    "numpy==2.2.6",
+
+    # System and process management
+    "psutil==7.2.2",
+
+    # User interface and CLI
+    "inquirer==3.4.1",
+    "colored==2.3.1",
+    "rich==14.3.2",
+    "rich-argparse==1.7.2",
+
+    # Ae comms
+    "flask-socketio==5.6.0",
+
+    # Video processing
+    "nelux==0.8.8; sys_platform == 'windows'",
+
+    # CPU inference
+    "torch==2.9.1",
+    "torchvision==0.24.1",
+    "opencv-python-headless==4.13.0.92",
+    "timm==1.0.24",
+    "onnx==1.20.0",
+    "vmaf-torch==1.1.0",
+    "yt-dlp==2026.2.4",
+    "scenedetect[opencv]",
+    "onnxruntime==1.24.1; sys_platform == 'linux'",
+    "torchcodec==0.9.1; sys_platform == 'linux'",
+    "onnxruntime_openvino; sys_platform == 'windows'",
+    "openvino==2025.4.1; sys_platform == 'windows'",
+    "onnxscript==0.6.2; sys_platform == 'windows'",
+    "einops==0.8.2; sys_platform == 'windows'",
+]
+
+
+[project.optional-dependencies]
+
+deprecated = [
+    "basswood-av",
+    "spandrel",
+    "python-socketio",
+    "vapoursynth",
+    "celux",
+    "pytorch-lightning",
+]
+
+# Compute platforms (Currently only NVIDIA)
+pascal = ["torch==2.9.1", "torchvision==0.24.1"]
+turing = [
+    "torch==2.9.1",
+    "torchvision==0.24.1",
+    "tensorrt==10.15.1.29",
+    "safetensors==0.7.0",
+    "triton-windows==3.6.0.post25; sys_platform == 'windows'",
+]
+ampere = [
+    "torch==2.9.1",
+    "torchvision==0.24.1",
+    "tensorrt==10.15.1.29",
+    "safetensors==0.7.0",
+    "triton-windows==3.6.0.post25; sys_platform == 'windows'",
+]
+ada = [
+    "torch==2.9.1",
+    "torchvision==0.24.1",
+    "tensorrt==10.15.1.29",
+    "safetensors==0.7.0",
+    "triton-windows==3.6.0.post25; sys_platform == 'windows'",
+]
+blackwell = [
+    "torch==2.9.1",
+    "torchvision==0.24.1",
+    "tensorrt==10.15.1.29",
+    "safetensors==0.7.0",
+    "triton-windows==3.6.0.post25; sys_platform == 'windows'",
+]
+
+
+[project.urls]
+Homepage = "https://github.com/TheRealMorgenfrue/TheAnimeScripter"
+Documentation = "https://example.com"
+
+[dependency-groups]
+dev = [{ include-group = "lint" }]
+lint = ["ruff"]
+
+
+[tool.uv]
+conflicts = [
+    [
+        { extra = "pascal" },
+        { extra = "turing" },
+        { extra = "ampere" },
+        { extra = "ada" },
+        { extra = "blackwell" },
+    ],
+]
+
+[tool.uv.sources]
+torch = [
+    { index = "cu126", extra = "pascal" },
+    { index = "cu130", extra = "turing" },
+    { index = "cu130", extra = "ampere" },
+    { index = "cu130", extra = "ada" },
+    { index = "cu130", extra = "blackwell" },
+]
+torchvision = [
+    { index = "cu126", extra = "pascal" },
+    { index = "cu130", extra = "turing" },
+    { index = "cu130", extra = "ampere" },
+    { index = "cu130", extra = "ada" },
+    { index = "cu130", extra = "blackwell" },
+]
+onnxruntime_openvino = { url = "https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/onnxruntime_openvino-1.23.2-cp313-cp313-win_amd64.whl" }
+tensorrt = { index = "nvidia" }
+
+applib = { git = "https://github.com/TheRealMorgenfrue/AppLib", rev = "0c7b9410b64d7b3d2c485e442cd36e2fd40ce599" }
+
+[[tool.uv.index]]
+# This version of PyTorch supports Nvidia GPUs with Pascal arch or later
+name = "cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[[tool.uv.index]]
+name = "nvidia"
+url = "https://pypi.nvidia.com"
+explicit = true
+
+[tool.hatch.version]
+path = "src/version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.ruff]
+extend-exclude = []
+
+[tool.ruff.format]
+docstring-code-format = true
