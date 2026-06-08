@@ -14,6 +14,10 @@ class TASArgs:
     github = "https://github.com/TheRealMorgenfrue/TheAnimeScripter"
     is_release = False
 
+    # IO
+    video_extensions = [".mp4", ".mkv", ".webm", ".avi", ".mov", ".gif"]
+    image_extensions = [".png", ".jpg", ".jpeg", ".tiff", ".tif", ".exr", ".dpx"]
+
     # Logging
     log_dir = Path(app_dir, "logs")
     log_format = "%(asctime)s - %(module)s - %(lineno)s - %(levelname)s - %(message)s"  # %(asctime)s - %(name)s - %(levelname)s - %(message)s'
