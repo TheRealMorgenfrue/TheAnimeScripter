@@ -27,6 +27,7 @@ class TASConfig(ConfigBase):
                 name=TASArgs.main_config_name,
                 template=template,
                 validation_model=validation_model,
-                file_path=TASArgs.main_config_path,
+                input_data=TASArgs.main_config_path,
+                save_path=TASArgs.main_config_path,
             )
             self._created = True
