@@ -1,261 +1,242 @@
 import glob
-import logging
 import os
 import random
 import re
 
-from src.module.utils.logAndPrint import logAndPrint
+from applib import LoggingManager
 
-EXTENSIONS = [".mp4", ".mkv", ".webm", ".avi", ".mov", ".gif"]
-IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".tiff", ".tif", ".exr", ".dpx"]
-
-
-def detectImageSequence(folderPath):
-    """
-    Detects if a folder contains an image sequence and returns the sequence pattern.
-
-    Args:
-        folderPath: Path to the folder to check
-
-    Returns:
-        tuple: (sequencePattern, firstFrame, lastFrame, frameCount) or None if not a sequence
-    """
-    if not os.path.isdir(folderPath):
-        return None
-
-    imageFiles = []
-    for ext in IMAGE_EXTENSIONS:
-        imageFiles.extend(glob.glob(os.path.join(folderPath, f"*{ext}")))
-        imageFiles.extend(glob.glob(os.path.join(folderPath, f"*{ext.upper()}")))
-
-    if len(imageFiles) < 2:
-        return None
-
-    imageFiles.sort()
-
-    firstFile = os.path.basename(imageFiles[0])
-
-    patterns = [
-        r"^(.+?)(\d+)(\.[^.]+)$",
-    ]
-
-    for pattern in patterns:
-        match = re.match(pattern, firstFile)
-        if match:
-            prefix, number, extension = match.groups()
-            padding = len(number)
-
-            expectedPattern = f"{prefix}%0{padding}d{extension}"
-
-            frameNumbers = []
-            for imgFile in imageFiles:
-                basename = os.path.basename(imgFile)
-                m = re.match(pattern, basename)
-                if (
-                    m
-                    and m.group(1) == prefix
-                    and m.group(3).lower() == extension.lower()
-                ):
-                    try:
-                        frameNumbers.append(int(m.group(2)))
-                    except ValueError:
-                        continue
-
-            if len(frameNumbers) >= 2:
-                frameNumbers.sort()
-                firstFrame = frameNumbers[0]
-                lastFrame = frameNumbers[-1]
-
-                sequencePath = os.path.join(folderPath, expectedPattern)
-
-                return (sequencePath, firstFrame, lastFrame, len(frameNumbers))
-
-    return None
+from src.module.config.tas_args import TASArgs
+from src.module.config.tas_config import TASConfig
 
 
-def getFirstImageInSequence(folderPath):
-    """
-    Gets the first image file in a folder for sequence detection.
-
-    Args:
-        folderPath: Path to the folder
-
-    Returns:
-        Path to the first image file, or None if no images found
-    """
-    if not os.path.isdir(folderPath):
-        return None
-
-    imageFiles = []
-    for ext in IMAGE_EXTENSIONS:
-        imageFiles.extend(glob.glob(os.path.join(folderPath, f"*{ext}")))
-        imageFiles.extend(glob.glob(os.path.join(folderPath, f"*{ext.upper()}")))
-
-    if not imageFiles:
-        return None
-
-    imageFiles.sort()
-    return imageFiles[0]
+class PathConfiguration:
+    def __init__(
+        self,
+        input_path: str,
+        output_path: str,
+    ) -> None:
+        self.input_path = input_path
+        self.output_path = output_path
 
 
-def generateOutputName(args, videoInput):
-    """Generates output filename based on input and processing arguments."""
-    if any(proto in str(videoInput) for proto in ["https://", "http://"]):
-        return f"TAS-YTDLP-{random.randint(0, 1000)}.mp4"
+class IOHandler:
+    def __init__(self) -> None:
+        self.logger = LoggingManager()
 
-    baseName = (
-        os.path.splitext(os.path.basename(videoInput))[0] if videoInput else "TAS"
-    )
+    def _detect_image_sequence(self, folder_path: str):
+        """
+        Detects if a folder contains an image sequence and returns the sequence pattern.
 
-    features = [
-        ("resize", "Resize", "resize_factor"),
-        ("dedup", "Dedup", "dedup_sens"),
-        ("interpolate", "Int", "interpolate_factor"),
-        ("upscale", "Up", "upscale_factor"),
-        ("sharpen", "Sh", "sharpen_sens"),
-        ("restore", "Restore", "restore_method"),
-        ("segment", "Segment", None),
-        ("depth", "Depth", None),
-        ("ytdlp", "YTDLP", None),
-    ]
+        Args:
+            folderPath: Path to the folder to check
 
-    suffixes = []
-    for arg, label, val_attr in features:
-        if getattr(args, arg, False):
-            val = getattr(args, val_attr, "") if val_attr else ""
-            suffixes.append(f"-{label}{val}")
+        Returns:
+            tuple: (sequencePattern, firstFrame, lastFrame, frameCount) or None if not a sequence
+        """
+        if not os.path.isdir(folder_path):
+            return None
 
-    suffixes.append(f"-{random.randint(0, 1000)}")
+        image_files = []
+        for ext in TASArgs.image_extensions:
+            image_files.extend(glob.glob(os.path.join(folder_path, f"*{ext}")))
+            image_files.extend(glob.glob(os.path.join(folder_path, f"*{ext.upper()}")))
 
-    if (
-        getattr(args, "segment", False)
-        or getattr(args, "encode_method", "") == "prores"
-    ):
-        extension = ".mov"
-    elif getattr(args, "encode_method", "") == "png":
-        extension = ""
-    elif videoInput:
-        extension = os.path.splitext(videoInput)[1]
-    else:
-        extension = ".mp4"
+        if len(image_files) < 2:
+            return None
 
-    return f"{baseName}{''.join(suffixes)}{extension}"
+        image_files.sort()
 
+        first_file = os.path.basename(image_files[0])
 
-def generateOutputPath(video, output, defaultOutputPath, args):
-    """Generates appropriate output path based on input parameters."""
-    if output and output.endswith(tuple(EXTENSIONS)):
-        return output
-
-    baseDir = output if output and os.path.isdir(output) else defaultOutputPath
-
-    if getattr(args, "encode_method", "") == "png":
-        outputName = generateOutputName(args, video)
-        outputFolder = os.path.join(baseDir, outputName)
-        os.makedirs(outputFolder, exist_ok=True)
-        return os.path.join(outputFolder, "frames_%05d.png")
-
-    return os.path.join(baseDir, generateOutputName(args, video))
-
-
-def validateEncoder(video, encodeMethod, customEncoder):
-    """Validates and potentially adjusts the encoder method based on file type."""
-    if (
-        video.endswith(".webm")
-        and not customEncoder
-        and encodeMethod not in ["vp9", "qsv_vp9", "av1"]
-    ):
-        logAndPrint(
-            f"Video {video} is a Webm file, encode method was not set to ['vp9', 'qsv_vp9', 'av1'] and `--custom_encoder` is None, defaulting to 'vp9'.",
-            colorFunc="yellow",
-        )
-        return "vp9"
-    return encodeMethod
-
-
-def getVideoFiles(videosInput):
-    """Extract list of video files from input specification."""
-    # Handle semicolon separated paths
-    if ";" in str(videosInput):
-        paths = [v.strip() for v in str(videosInput).split(";") if v.strip()]
-        all_files = []
-        for p in paths:
-            all_files.extend(getVideoFiles(p))
-        return all_files
-
-    # Handle URL input
-    if any(proto in str(videosInput) for proto in ["https://", "http://"]):
-        return [videosInput]
-
-    # Handle image sequence pattern (e.g., frames_%05d.png)
-    if "%" in str(videosInput):
-        return [videosInput]
-
-    # Handle directory or file
-    absPath = os.path.abspath(videosInput)
-    if os.path.isdir(absPath):
-        # First, check if this directory contains an image sequence
-        sequenceInfo = detectImageSequence(absPath)
-        if sequenceInfo:
-            sequencePath, firstFrame, lastFrame, frameCount = sequenceInfo
-            logging.info(
-                f"Detected image sequence: {sequencePath} "
-                f"(frames {firstFrame}-{lastFrame}, {frameCount} total)"
-            )
-            return [sequencePath]
-
-        # Otherwise, look for video files in the directory
-        return [
-            os.path.join(absPath, f)
-            for f in os.listdir(absPath)
-            if os.path.splitext(f)[1].lower() in EXTENSIONS
+        patterns = [
+            r"^(.+?)(\d+)(\.[^.]+)$",
         ]
 
-    if os.path.isfile(absPath):
-        if absPath.endswith(".txt"):
-            with open(absPath, "r") as f:
-                return [
-                    os.path.abspath(line.strip().strip('"'))
-                    for line in f
-                    if line.strip()
-                ]
-        return [absPath]
+        for pattern in patterns:
+            match = re.match(pattern, first_file)
+            if match:
+                prefix, number, extension = match.groups()
+                padding = len(number)
 
-    # Fallback
-    return [absPath]
+                expected_pattern = f"{prefix}%0{padding}d{extension}"
 
+                frame_numbers = []
+                for img_file in image_files:
+                    basename = os.path.basename(img_file)
+                    m = re.match(pattern, basename)
+                    if (
+                        m
+                        and m.group(1) == prefix
+                        and m.group(3).lower() == extension.lower()
+                    ):
+                        try:
+                            frame_numbers.append(int(m.group(2)))
+                        except ValueError:
+                            continue
 
-def processInputOutputPaths(args, defaultOutputPath):
-    """Processes input and output paths for video processing."""
-    os.makedirs(defaultOutputPath, exist_ok=True)
+                if len(frame_numbers) >= 2:
+                    frame_numbers.sort()
+                    first_frame = frame_numbers[0]
+                    last_frame = frame_numbers[-1]
 
-    output = args.output
-    if output:
-        output = os.path.abspath(output)
-        if not output.endswith(tuple(EXTENSIONS)):
-            os.makedirs(output, exist_ok=True)
-        else:
-            parent_dir = os.path.dirname(output)
-            if parent_dir:
-                os.makedirs(parent_dir, exist_ok=True)
+                    sequence_path = os.path.join(folder_path, expected_pattern)
 
-    videoFiles = getVideoFiles(args.input)
+                    return (sequence_path, first_frame, last_frame, len(frame_numbers))
 
-    results = {}
-    for index, video in enumerate(videoFiles, 1):
-        if not any(proto in str(video) for proto in ["https://", "http://"]):
-            # Skip existence check for image sequence patterns (they contain %)
-            if "%" not in str(video) and not os.path.exists(video):
-                raise FileNotFoundError(f"File {video} does not exist")
+        return None
 
-        results[index] = {
-            "videoPath": video,
-            "outputPath": generateOutputPath(video, output, defaultOutputPath, args),
-            "encodeMethod": validateEncoder(
-                video, args.encode_method, args.custom_encoder
+    def _generate_output_name(self, config: TASConfig, input_path: str):
+        """Generates output filename based on input and processing arguments."""
+
+        ## Suffix arguments ##
+        ensemble = "-ensemble" if config.get_value("ensemble", default=False) else ""
+        dynamic_scale = (
+            "-dynamic_scale" if config.get_value("dynamic_scale", default=False) else ""
+        )
+
+        argMap = {
+            "resize": (
+                f"_Resize{config.get_value('resize_factor', default='')}"
+                if config.get_value("resize", default=False)
+                else ""
             ),
-            "customEncoder": args.custom_encoder,
+            "dedup": (
+                f"_Dedup={config.get_value('dedup_method', default='')}-Sens={config.get_value('dedup_sens', default='')}"
+                if config.get_value("dedup", default=False)
+                else ""
+            ),
+            "interpolate": (
+                f"_VFI={config.get_value('interpolate_method', default='')}-{config.get_value('interpolate_factor', default='')}x{ensemble}{dynamic_scale}"
+                if config.get_value("interpolate", default=False)
+                else ""
+            ),
+            "upscale": (
+                f"_SR={config.get_value('upscale_method', default='')}-{config.get_value('upscale_factor', default='')}x"
+                if config.get_value("upscale", default=False)
+                else ""
+            ),
+            "sharpen": (
+                f"_Sh{config.get_value('sharpen_sens', default='')}"
+                if config.get_value("sharpen", default=False)
+                else ""
+            ),
+            "restore": (
+                f"_Restore{config.get_value('restore_method', default='')}"
+                if config.get_value("restore", default=False)
+                else ""
+            ),
+            "segment": "_Segment" if config.get_value("segment", default=False) else "",
+            "depth": "_Depth" if config.get_value("depth", default=False) else "",
+            "ytdlp": "_YTDLP" if config.get_value("ytdlp", default=False) else "",
         }
+        #####
 
-    return results
-    return results
+        # Handle URL input
+        if input_path in ["https://", "http://"]:
+            return f"TAS-YTDLP-{random.randint(0, 1000)}.mp4"
+
+        # Start with base name
+        baseName = (
+            os.path.splitext(os.path.basename(input_path))[0] if input_path else "TAS"
+        )
+
+        # Add processing indicators
+        suffixes = [suffix for suffix in argMap.values() if suffix]
+
+        # Add random number to prevent overwrites
+        suffixes.append(f"_ID{random.randint(0, 1000)}")
+
+        # Determine extension
+        if (
+            config.get_value("segment", default=False)
+            or config.get_value("encode_method", "") == "prores"
+        ):
+            extension = ".mov"
+        elif config.get_value("encode_method") == "png":
+            extension = ""
+        elif input_path:
+            extension = os.path.splitext(input_path)[1]
+        else:
+            extension = ".mkv"
+
+        return baseName + "".join(suffixes) + extension
+
+    def _generate_output_path(
+        self, config: TASConfig, output_dir: str, input_path: str
+    ):
+        """Generates appropriate output path based on input parameters."""
+        if config.get_value("encode_method") == "png":
+            output_name = self._generate_output_name(config, input_path)
+            output_folder = os.path.join(output_dir, output_name)
+            os.makedirs(output_folder, exist_ok=True)
+            return os.path.join(output_folder, "frames_%05d.png")
+
+        return os.path.join(output_dir, self._generate_output_name(config, input_path))
+
+    def _get_video_files(self, input_paths: list[str]) -> list[str]:
+        """Extract list of video files from input specification.
+
+        Parameters
+        ----------
+        input_paths : list[str]
+            A list of paths for each input.
+
+        Returns
+        -------
+        list[str]
+            A list of paths for all valid inputs. Invalid inputs are discarded.
+        """
+        output_paths = []
+        for path in input_paths:
+            if not os.path.exists(path):
+                self.logger.warning(f"Path '{path}' not found. Skipping")
+                continue
+
+            if os.path.isdir(path):
+                for file in os.listdir(path):
+                    ext = os.path.splitext(file)[1]
+                    if ext.lower() in TASArgs.video_extensions:
+                        output_paths.append(os.path.join(path, file))
+            elif os.path.isfile(path):
+                ext = os.path.splitext(path)[1].lower()
+                if ext == ".txt":
+                    with open(path, "r") as file:
+                        files = self._get_video_files(
+                            [
+                                line.strip()
+                                for line in file.readlines()
+                                if line.strip() != ""
+                            ]
+                        )
+                        output_paths.extend(files)
+                elif ext in TASArgs.video_extensions:
+                    output_paths.append(path)
+            # Handle semicolon-separated paths
+            elif ";" in path:
+                files = self._get_video_files(
+                    [v.strip() for v in path.split(";") if v.strip() != ""]
+                )
+                output_paths.extend(files)
+        return output_paths
+
+    def get_input_files(self) -> list[PathConfiguration]:
+        """Returns the paths of video files found at the input location."""
+        config = TASConfig()
+        output_dir = config.get_value("output")
+        files = self._get_video_files(config.get_value("input"))
+
+        self.logger.info(f"Found {len(files)} videos to process")
+        self.logger.debug(f"Initializing output directory '{output_dir}'")
+        os.makedirs(output_dir, exist_ok=True)
+
+        return [
+            PathConfiguration(
+                input_path=path,
+                output_path=self._generate_output_path(
+                    config,
+                    output_dir,
+                    path,
+                ),
+            )
+            for path in files
+        ]
