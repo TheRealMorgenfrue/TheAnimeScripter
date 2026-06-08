@@ -28,19 +28,15 @@ import traceback
 
 from applib import CLIArguments, CoreApp, LoggingManager
 
-from module.setup import process_arguments
 from src.app.interfaces.mainwindow import TASMainWindow
 from src.module.config.tas_config import TASConfig
+from src.module.setup import process_arguments
 
 
 def main():
     """
     Main entry point for The Anime Scripter application.
-
-    Handles initialization, argument parsing, and coordinates video processing
-    for single or multiple input files.
     """
-
     # Set application path
     os.environ["TAS_PATH"] = f"{os.path.dirname(os.path.abspath(__file__))}"
 
@@ -68,7 +64,7 @@ def main():
             arg_parser = argument_handler.create_argparser(config)
             args = arg_parser.parse_args()
             argument_handler.deserialize(args, config, merge=True)
-            process_arguments(config)
+            process_arguments()
         except KeyboardInterrupt:
             logger.warning("Process interrupted by user")
             # TODO: Cleanup here. Destroy running processes etc.
