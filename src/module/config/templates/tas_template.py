@@ -1,35 +1,54 @@
-import os
 from typing import Self, override
 
 from applib import (
-    AutoTextWrap,
     BaseTemplate,
     ColorPickerOption,
     ComboBoxOption,
-    CompatilityValidator,
     CoreArgs,
     FileSelectorOption,
     GUIMessage,
     LoggingManager,
     NumberOption,
     Option,
-    TextEditOption,
-    UIGroups,
-    UITypes,
     change_theme,
     change_theme_color,
+    validate_background,
     validate_loglevel,
     validate_path,
     validate_theme,
 )
 
-from src.module.config.runners.compatibility.depth_compatibility import (
-    compatible_depth_model,
-)
-from src.module.config.runners.compatibility.encoding_compatibility import (
-    compatible_bit_depth,
-)
 from src.module.config.tas_args import TASArgs
+from src.module.config.templates.tas_template_parts.deduplication_template_part import (
+    tas_deduplication_template,
+)
+from src.module.config.templates.tas_template_parts.depth_estimation_template_part import (
+    tas_depth_estimation_template,
+)
+from src.module.config.templates.tas_template_parts.encoding_template_part import (
+    tas_encoding_template,
+)
+from src.module.config.templates.tas_template_parts.io_template_part import (
+    tas_io_template,
+)
+from src.module.config.templates.tas_template_parts.object_detection_template_part import (
+    tas_object_detection_template,
+)
+from src.module.config.templates.tas_template_parts.performance_template_part import (
+    tas_performance_template,
+)
+from src.module.config.templates.tas_template_parts.scene_detection_template_part import (
+    tas_scene_detection_template,
+)
+from src.module.config.templates.tas_template_parts.segmentation_template_part import (
+    tas_segmentation_template,
+)
+from src.module.config.templates.tas_template_parts.sr_template_part import (
+    tas_sr_template,
+)
+from src.module.config.templates.tas_template_parts.vfi_template_part import (
+    tas_vfi_template,
+)
 
 
 class TASTemplate(BaseTemplate):
@@ -95,7 +114,7 @@ class TASTemplate(BaseTemplate):
                     hide_in_cli=True,
                     ui_file_filter="Images (*.jpg *.jpeg *.png *.bmp)",
                     ui_info=GUIMessage("Select background image"),
-                    validators=[validate_path],
+                    validators=[validate_path, validate_background],
                 ),
                 "backgroundOpacity": NumberOption(
                     default=50,
@@ -118,530 +137,14 @@ class TASTemplate(BaseTemplate):
                     ),
                 ),
             },
-            "IO": {
-                "input": FileSelectorOption(
-                    default="",
-                    ui_info=GUIMessage(
-                        "Input video file",
-                    ),
-                ),
-                "output": FileSelectorOption(
-                    default=os.environ["TAS_PATH"],
-                    ui_info=GUIMessage(
-                        "Destination folder",
-                    ),
-                    ui_show_dir_only=True,
-                ),
-                "inpoint": NumberOption(
-                    default=0.0,
-                    min=0.0,
-                    max=None,
-                    ui_disable_self=0.0,
-                    ui_info=GUIMessage(
-                        "Input start time",
-                    ),
-                    ui_type=UITypes.SPINBOX,
-                ),
-                "outpoint": NumberOption(
-                    default=0.0,
-                    min=0.0,
-                    max=None,
-                    ui_disable_self=0.0,
-                    ui_info=GUIMessage(
-                        "Input end time",
-                    ),
-                    ui_type=UITypes.SPINBOX,
-                ),
-            },
-            "Performance": {
-                "precision": ComboBoxOption(
-                    # TODO: Implement
-                    default="fp16",
-                    values=["fp32", "fp16"],
-                    ui_info=GUIMessage(
-                        "NOT IMPLEMENTED YET! Precision for inference, default is fp16"
-                    ),
-                ),
-                "decode_method": ComboBoxOption(
-                    default="cpu",
-                    values=["cpu", "nvdec"],
-                    ui_info=GUIMessage(
-                        "Decoding backend to use, default is cpu. 'nvdec' requires an NVIDIA GPU with NVDEC support.",
-                    ),
-                ),
-                "static_trt": Option(
-                    default=False,
-                    ui_info=GUIMessage(
-                        "Force Static Mode engine generation for TensorRT"
-                    ),
-                ),
-                "compile_mode": ComboBoxOption(
-                    default="default",
-                    values=["default", "max", "max-graphs"],
-                    ui_info=GUIMessage(
-                        "[EXPERIMENTAL] Enable PyTorch compilation for CUDA models to improve performance",
-                        AutoTextWrap.text_format(
-                            "Only compatible with CUDA workflows and may cause compatibility issues with some models. "
-                            "Increases startup time and memory usage. "
-                            "'default' uses standard CudaGraph workflow without compilation, "
-                            "'max' uses 'max-autotune-no-cudagraphs' mode, "
-                            "'max-graphs' uses 'max-autotune-no-cudagraphs' with fullGraph=True. "
-                            "Both 'max' options disable CudaGraphs, which may reduce performance at lower resolutions.",
-                        ),
-                    ),
-                ),
-                "profile": Option(
-                    default=False,
-                    ui_info=GUIMessage(
-                        "Enable torch.profiler to analyze GPU/CPU performance bottlenecks"
-                    ),
-                ),
-                "benchmark": Option(
-                    default=False,
-                    ui_group="compat_bench",
-                    ui_group_parent=[UIGroups.DESYNC_FALSE_CHILDREN],
-                    ui_info=GUIMessage("Benchmark the current configuration"),
-                ),
-            },
-            "Encoding": {
-                "encode_method": ComboBoxOption(
-                    default="x264",
-                    values=[
-                        "x264",
-                        "slow_x264",
-                        "x264_10bit",
-                        "x264_animation",
-                        "x264_animation_10bit",
-                        "x265",
-                        "slow_x265",
-                        "x265_10bit",
-                        "nvenc_h264",
-                        "slow_nvenc_h264",
-                        "nvenc_h265",
-                        "slow_nvenc_h265",
-                        "nvenc_h265_10bit",
-                        "nvenc_av1",
-                        "slow_nvenc_av1",
-                        "qsv_h264",
-                        "qsv_h265",
-                        "qsv_h265_10bit",
-                        "av1",
-                        "slow_av1",
-                        "h264_amf",
-                        "hevc_amf",
-                        "hevc_amf_10bit",
-                        "prores",
-                        "prores_segment",
-                        "gif",
-                        "vp9",
-                        "qsv_vp9",
-                        "lossless",
-                        "lossless_nvenc",
-                        "png",
-                        "nvenc_h264_nelux",
-                        "nvenc_h265_nelux",
-                        "nvenc_av1_nelux",
-                    ],
-                    ui_info=GUIMessage("Encoding method"),
-                ),
-                "custom_encoder": TextEditOption(
-                    default="", ui_info=GUIMessage("Custom encoder settings")
-                ),
-                "bit_depth": ComboBoxOption(
-                    default="8bit",
-                    values=["8bit", "16bit"],
-                    ui_info=GUIMessage("Bit Depth of the raw pipe input to FFmpeg"),
-                ),
-            },
-            "VFI": {
-                "interpolation": Option(
-                    default=False,
-                    ui_group="g_vfi",
-                    ui_group_parent=[UIGroups.NESTED_CHILDREN],
-                    ui_info=GUIMessage("Interpolate the video"),
-                ),
-                "interpolate_factor": NumberOption(
-                    default=2.0,
-                    min=0,
-                    max=None,
-                    ui_group="g_vfi",
-                    ui_info=GUIMessage("Interpolation factor"),
-                ),
-                "interpolate_method": ComboBoxOption(
-                    default="rife4.6",
-                    values=[
-                        "distildrba",
-                        "distildrba-lite",
-                        "distildrba-tensorrt",
-                        "distildrba-lite-tensorrt",
-                        "atr",
-                        "rife4.6",
-                        "rife4.15-lite",
-                        "rife4.16-lite",
-                        "rife4.17",
-                        "rife4.18",
-                        "rife4.20",
-                        "rife4.21",
-                        "rife4.22",
-                        "rife4.22-lite",
-                        "rife4.25",
-                        "rife4.25-depth",
-                        "rife4.25-lite",
-                        "rife4.25-heavy",
-                        "rife-ncnn",
-                        "rife4.6-ncnn",
-                        "rife4.15-lite-ncnn",
-                        "rife4.16-lite-ncnn",
-                        "rife4.17-ncnn",
-                        "rife4.18-ncnn",
-                        "rife4.20-ncnn",
-                        "rife4.21-ncnn",
-                        "rife4.22-ncnn",
-                        "rife4.22-lite-ncnn",
-                        "rife4.6-tensorrt",
-                        "rife4.15-tensorrt",
-                        "rife4.17-tensorrt",
-                        "rife4.18-tensorrt",
-                        "rife4.20-tensorrt",
-                        "rife4.21-tensorrt",
-                        "rife4.22-tensorrt",
-                        "rife4.22-lite-tensorrt",
-                        "rife4.25-tensorrt",
-                        "rife4.25-lite-tensorrt",
-                        "rife4.25-heavy-tensorrt",
-                        "rife-tensorrt",
-                        "gmfss",
-                        "gmfss-tensorrt",
-                        "rife_elexor",
-                        "rife_elexor-tensorrt",
-                        "rife4.6-tensorrt",
-                        "rife4.6-directml",
-                        "rife4.15-directml",
-                        "rife4.17-directml",
-                        "rife4.18-directml",
-                        "rife4.20-directml",
-                        "rife4.21-directml",
-                        "rife4.22-directml",
-                        "rife4.22-lite-directml",
-                        "rife4.25-directml",
-                        "rife4.25-lite-directml",
-                        "rife4.25-heavy-directml",
-                        "rife4.6-openvino",
-                        "rife4.15-openvino",
-                        "rife4.17-openvino",
-                        "rife4.18-openvino",
-                        "rife4.20-openvino",
-                        "rife4.21-openvino",
-                        "rife4.22-openvino",
-                        "rife4.22-lite-openvino",
-                        "rife4.25-openvino",
-                        "rife4.25-lite-openvino",
-                        "rife4.25-heavy-openvino",
-                    ],
-                    ui_group="g_vfi",
-                    ui_info=GUIMessage("Interpolation method"),
-                ),
-                "slowmo": Option(
-                    default=False,
-                    ui_group="g_vfi",
-                    ui_info=GUIMessage(
-                        "Enable slow motion interpolation, this will slow down the video instead of increasing the frame rate"
-                    ),
-                ),
-                "ensemble": Option(
-                    default=False,
-                    ui_group="g_vfi",
-                    ui_info=GUIMessage("Use the ensemble model for interpolation"),
-                ),
-                "dynamic_scale": Option(
-                    default=False,
-                    ui_group="g_vfi",
-                    ui_info=GUIMessage(
-                        "Use dynamic scaling for interpolation, this can improve the quality of the interpolation at the cost of performance",
-                        "This is experimental and only works with Rife CUDA",
-                    ),
-                ),
-                "static_step": Option(
-                    default=False,
-                    ui_group="g_vfi",
-                    ui_info=GUIMessage(
-                        "Force static timestep generation for Rife CUDA"
-                    ),
-                ),
-                "interpolate_first": Option(
-                    default=False,
-                    ui_group="g_vfi",
-                    ui_info=GUIMessage(
-                        "Switch back to the old approach where interpolated frames would instantly be written to the write queue"
-                    ),
-                ),
-            },
-            "SR": {
-                "upscale": Option(
-                    default=False,
-                    ui_group="g_sr",
-                    ui_group_parent=[UIGroups.NESTED_CHILDREN],
-                    ui_info=GUIMessage("Upscale the video"),
-                ),
-                "upscale_factor": ComboBoxOption(
-                    default=2,
-                    values=[2, 3, 4],
-                    ui_group="g_sr",
-                    ui_info=GUIMessage("Upscaling factor"),
-                ),
-                "upscale_method": ComboBoxOption(
-                    default="shufflecugan",
-                    values=[
-                        "shufflecugan",
-                        "fallin_soft",
-                        "fallin_soft-tensorrt",
-                        "fallin_soft-directml",
-                        "fallin_strong",
-                        "fallin_strong-tensorrt",
-                        "fallin_strong-directml",
-                        "compact",
-                        "ultracompact",
-                        "superultracompact",
-                        "span",
-                        "compact-directml",
-                        "ultracompact-directml",
-                        "superultracompact-directml",
-                        "shufflespan-directml",
-                        "span-directml",
-                        "shufflecugan-ncnn",
-                        "shufflecugan-directml",
-                        "shufflecugan-openvino",
-                        "span-ncnn",
-                        "compact-tensorrt",
-                        "ultracompact-tensorrt",
-                        "superultracompact-tensorrt",
-                        "span-tensorrt",
-                        "shufflecugan-tensorrt",
-                        "shufflespan-tensorrt",
-                        "open-proteus",
-                        "open-proteus-tensorrt",
-                        "open-proteus-directml",
-                        "aniscale2",
-                        "aniscale2-tensorrt",
-                        "aniscale2-directml",
-                        "rtmosr",
-                        "rtmosr-tensorrt",
-                        "rtmosr-directml",
-                        "saryn",
-                        "saryn-tensorrt",
-                        "saryn-directml",
-                        "animesr",
-                        "animesr-tensorrt",
-                        "animesr-directml",
-                        "animesr-openvino",
-                        "compact-openvino",
-                        "ultracompact-openvino",
-                        "superultracompact-openvino",
-                        "span-openvino",
-                        "open-proteus-openvino",
-                        "aniscale2-openvino",
-                        "shufflespan-openvino",
-                        "rtmosr-openvino",
-                        "saryn-openvino",
-                        "fallin_soft-openvino",
-                        "fallin_strong-openvino",
-                        "gauss",
-                        "gauss-tensorrt",
-                        "gauss-directml",
-                        "gauss-openvino",
-                    ],
-                    ui_group="g_sr",
-                    ui_info=GUIMessage("Upscaling method"),
-                ),
-                "custom_model": FileSelectorOption(
-                    default="",
-                    ui_file_filter=None,
-                    ui_group="g_sr",
-                    ui_info=GUIMessage("Path to custom upscaling model"),
-                    validators=validate_path,
-                ),
-            },
-            "Deduplication": {
-                "dedup": Option(
-                    default=False,
-                    ui_group="g_dedup",
-                    ui_group_parent=[UIGroups.NESTED_CHILDREN],
-                    ui_info=GUIMessage("Deduplicate the video"),
-                ),
-                "dedup_sens": NumberOption(
-                    default=35.0,
-                    min=0.1,
-                    max=100.0,
-                    ui_group="g_dedup",
-                    ui_info=GUIMessage("Deduplication sensitivity"),
-                ),
-                "smooth_dedup": Option(
-                    default=False,
-                    ui_group="g_dedup",
-                    ui_info=GUIMessage(
-                        "Smooth deduplication, this will remove duplicates while also generating new frames to "
-                        "make the video smoother, this is experimental and may not work well with all videos, "
-                        "use --interpolate_method to set the interpolation method"
-                    ),
-                ),
-            },
-            "Scene Detection": {
-                "scn_detect": Option(
-                    default=False,
-                    ui_group="g_scn_detect",
-                    ui_group_parent=[UIGroups.NESTED_CHILDREN],
-                    ui_info=GUIMessage("Detect scene changes"),
-                ),
-                "scn_detect_sens": NumberOption(
-                    default=50.0,
-                    ui_disable_self=0.0,
-                    min=0.0,
-                    max=100.0,
-                    ui_group="g_scn_detect",
-                    ui_info=GUIMessage("Scene change sensitivity"),
-                ),
-            },
-            "Object Detection": {
-                "obj_detect": Option(
-                    default=False,
-                    ui_group="g_obj_detect",
-                    ui_group_parent=[UIGroups.NESTED_CHILDREN],
-                    ui_info=GUIMessage("Enable object detection"),
-                ),
-                "obj_detect_method": ComboBoxOption(
-                    default="yolov9_small-directml",
-                    values=[
-                        "yolov9_small-directml",
-                        "yolov9_medium-directml",
-                        "yolov9_large-directml",
-                        "yolov9_small-openvino",
-                        "yolov9_medium-openvino",
-                        "yolov9_large-openvino",
-                        "yolov9_small-tensorrt",
-                        "yolov9_medium-tensorrt",
-                        "yolov9_large-tensorrt",
-                    ],
-                    ui_group="g_obj_detect",
-                    ui_info=GUIMessage(
-                        "Object detection method",
-                    ),
-                ),
-                "obj_detect_disable_annotations": Option(
-                    default=False,
-                    ui_group="g_obj_detect",
-                    ui_info=GUIMessage(
-                        "Disable class labels and confidence percentages on detection boxes",
-                    ),
-                ),
-            },
-            "Segmentation": {
-                "segment": Option(
-                    default=False,
-                    ui_group="g_segment",
-                    ui_group_parent=[UIGroups.NESTED_CHILDREN],
-                    ui_info=GUIMessage("Segment the video (background removal)"),
-                    validators=[
-                        CompatilityValidator(compatible_bit_depth, ["bit_depth"])
-                    ],
-                ),
-                "segment_method": ComboBoxOption(
-                    default="anime",
-                    ui_group="g_segment",
-                    values=["anime", "anime-tensorrt", "anime-directml", "cartoon"],
-                    ui_info=GUIMessage("Segmentation method"),
-                ),
-            },
-            "Depth Estimation": {
-                "depth": Option(
-                    default=False,
-                    ui_group="g_depth",
-                    ui_group_parent=[UIGroups.NESTED_CHILDREN],
-                    ui_info=GUIMessage("Estimate the depth of the video"),
-                ),
-                "depth_method": ComboBoxOption(
-                    default="small_v2",
-                    values=[
-                        "small_v2",
-                        "base_v2",
-                        "large_v2",
-                        "giant_v2",
-                        "distill_small_v2",
-                        "distill_base_v2",
-                        "distill_large_v2",
-                        "og_small_v2",
-                        "og_base_v2",
-                        "og_large_v2",
-                        "og_giant_v2",
-                        "og_distill_small_v2",
-                        "og_distill_base_v2",
-                        "og_distill_large_v2",
-                        "og_video_small_v2",
-                        "og_video_base_v2",
-                        "og_video_large_v2",
-                        "video_small_v2",
-                        "video_large_v2",
-                        "small_v2-tensorrt",
-                        "base_v2-tensorrt",
-                        "large_v2-tensorrt",
-                        "distill_small_v2-tensorrt",
-                        "distill_base_v2-tensorrt",
-                        "distill_large_v2-tensorrt",
-                        "small_v2-directml",
-                        "base_v2-directml",
-                        "large_v2-directml",
-                        "distill_small_v2-directml",
-                        "distill_base_v2-directml",
-                        "distill_large_v2-directml",
-                        "og_small_v2-tensorrt",
-                        "og_base_v2-tensorrt",
-                        "og_large_v2-tensorrt",
-                        "og_distill_small_v2-tensorrt",
-                        "og_distill_base_v2-tensorrt",
-                        "og_distill_large_v2-tensorrt",
-                        "small_v3",
-                        "base_v3",
-                        "large_v3",
-                        "giant_v3",
-                        "small_v3-directml",
-                        "base_v3-directml",
-                        "large_v3-directml",
-                        "giant_v3-directml",
-                        "small_v3-tensorrt",
-                        "base_v3-tensorrt",
-                        "large_v3-tensorrt",
-                        "giant_v3-tensorrt",
-                        "small_v2-openvino",
-                        "base_v2-openvino",
-                        "large_v2-openvino",
-                        "distill_small_v2-openvino",
-                        "distill_base_v2-openvino",
-                        "distill_large_v2-openvino",
-                        "og_small_v2-openvino",
-                        "og_base_v2-openvino",
-                        "og_large_v2-openvino",
-                        "small_v3-openvino",
-                        "base_v3-openvino",
-                        "large_v3-openvino",
-                        "giant_v3-openvino",
-                    ],
-                    ui_group="g_depth",
-                    ui_info=GUIMessage(
-                        "Depth estimation method",
-                    ),
-                ),
-                "depth_quality": ComboBoxOption(
-                    default="low",
-                    values=["low", "medium", "high"],
-                    ui_info=GUIMessage(
-                        "This will determine the quality of the depth map",
-                        AutoTextWrap().text_format(
-                            "Low is significantly faster, but lower quality."
-                            "Only works with CUDA depth maps"
-                        ),
-                    ),
-                    validators=CompatilityValidator(
-                        compatible_depth_model, ["depth_method"]
-                    ),
-                ),
-            },
+            "IO": tas_io_template(),
+            "Performance": tas_performance_template(),
+            "Encoding": tas_encoding_template(),
+            "VFI": tas_vfi_template(),
+            "SR": tas_sr_template(),
+            "Deduplication": tas_deduplication_template(),
+            "Scene Detection": tas_scene_detection_template(),
+            "Object Detection": tas_object_detection_template(),
+            "Segmentation": tas_segmentation_template(),
+            "Depth Estimation": tas_depth_estimation_template(),
         }
