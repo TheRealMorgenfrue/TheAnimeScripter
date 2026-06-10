@@ -3,34 +3,27 @@
     requires=["hatchling"]
 
 [project]
-    authors=[{name="NevermindNilas"}]
+    authors=[{name="NevermindNilas"}, {name="TheRealMorgenfrue"}]
     classifiers=[
         "Development Status :: 4 - Beta",
         "Programming Language :: Python :: 3.13",
     ]
     dependencies=[
-        "applib",
-
         # Core dependencies
+        "applib",
         "setuptools==80.10.2",
         "wheel-stub==0.5.0",
         "numpy==2.2.6",
-
         # System and process management
         "psutil==7.2.2",
-
         # User interface and CLI
         "inquirer==3.4.1",
         "colored==2.3.1",
-        "rich==14.3.2",
-        "rich-argparse==1.7.2",
-
-        # Ae comms
-        "flask-socketio==5.6.0",
-
+        "rich==14.3.2",         # DEPRECATED
+        "rich-argparse==1.7.2", # DEPRECATED
+        "tqdm>=4.67.3",
         # Video processing
-        "nelux==0.8.8; sys_platform == 'windows'",
-
+        "nelux==0.12.6",
         # CPU inference
         "torch==2.9.1",
         "torchvision==0.24.1",
@@ -61,16 +54,6 @@
 
 
     [project.optional-dependencies]
-
-        deprecated=[
-            "basswood-av",
-            "spandrel",
-            "python-socketio",
-            "vapoursynth",
-            "celux",
-            "pytorch-lightning",
-        ]
-
         # Compute platforms (Currently only NVIDIA)
         ada=[
             "torch==2.9.1",
@@ -140,7 +123,7 @@
             {index="cu130", extra="blackwell"},
         ]
 
-        # applib={git="https://github.com/TheRealMorgenfrue/AppLib", branch="cli_config"}
+        # applib={git="https://github.com/TheRealMorgenfrue/AppLib"}
         applib={path="../AppLib", editable=true}
 
     [[tool.uv.index]]
