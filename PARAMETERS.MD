@@ -286,11 +286,9 @@ C:\Videos\episode3.mp4
 
 #### Basic Processing Flags
 
-| Parameter     | Type | Description                                                                                   | Performance Impact  |
-| ------------- | ---- | --------------------------------------------------------------------------------------------- | ------------------- |
-| `--benchmark` | flag | **Performance testing** - No output, measures speed                                           | None (testing only) |
-| `--preview`   | flag | **Preview mode** - Opens localhost preview                                                    | Low                 |
-| `--ae`        | str  | **After Effects host string (e.g., "127.0.0.1:PORT")** - Enables AE comms and sets Adobe mode | None                |
+| Parameter     | Type | Description                                         | Performance Impact  |
+| ------------- | ---- | --------------------------------------------------- | ------------------- |
+| `--benchmark` | flag | **Performance testing** - No output, measures speed | None (testing only) |
 
 ---
 
@@ -359,7 +357,7 @@ C:\Videos\episode3.mp4
 | **gmfss**          | ⚡       | ⭐⭐⭐⭐⭐ | 6GB  | Alternative method   | CUDA, TRT                      |
 | **rife_elexor**    | ⚡       | ⭐⭐⭐     | 8GB  | Maximum quality      | CUDA, TRT                      |
 
-> **💡 Performance Tip:** Use `--ensemble` for final renders, disable for previews
+> **💡 Performance Tip:** Use `--ensemble` for final renders
 
 #### Additional Interpolation Parameters
 
@@ -817,7 +815,7 @@ C:\Videos\episode3.mp4
 - Lite models: 2-4GB VRAM
 - Standard models: 4-8GB VRAM
 - Large models: 8-12GB VRAM
-  </details>
+    </details>
 
 <details>
 <summary><b>🐌 Slow Processing Speed</b></summary>
