@@ -3,44 +3,47 @@ import os
 import subprocess
 import threading
 import time
+import traceback
+from enum import Enum
 from queue import Queue
 
 import cv2
 import nelux
 import torch
+from applib import LoggingManager
+from numpy.typing import NDArray
+from torch import Tensor
+from torch.nn import functional
 
-import src.module.constants as cs
+from module.config.tas_config import TASConfig
 from src.module.utils.encodingSettings import getPixFMT, matchEncoder
 
-from .isCudaInit import CudaChecker
-
-checker = CudaChecker()
-
-# Debugging flag
-neluxLog = False
-
-CachedReader = None
-CachedReaderMethod = None
+from .cuda_checker import CudaChecker
 
 
-class BuildBuffer:
+class Backend(Enum):
+    TORCH = "pytorch"
+    NUMPY = "numpy"
+
+
+class ReadBuffer:
     def __init__(
         self,
-        videoInput: str = "",
+        video_input: str = "",
         inpoint: float = 0.0,
         outpoint: float = 0.0,
         half: bool = True,
         resize: bool = False,
         width: int = 1920,
         height: int = 1080,
-        bitDepth: str = "8bit",
-        toTorch: bool = True,
+        bit_depth: str = "8bit",
+        backend: Backend = Backend.TORCH,
         decode_method: str = "cpu",
         batched: bool = False,
-        batchSize: int = 1,
+        batch_size: int = 1,
     ):
         """
-        Initializes the BuildBuffer class.
+        Creates a video decode buffer.
 
         Args:
             videoInput (str): Path to the input video file.
@@ -57,264 +60,197 @@ class BuildBuffer:
             batchSize (int): The size of each batch when decoding in batches.
 
         Note:
-            Nelux returns HWC format [H, W, 3] with native dtype (uint8/int16).
-            processFrameToTorch converts this to BCHW float format for processing.
+            NeLux returns HWC format [H, W, 3] with native dtype (uint8/int16).
+            `process_frame_to_torch` converts this to BCHW float format for processing.
         """
-        self.decodeMethod = decode_method
+        self._logger = LoggingManager()
+        self._frame_available = threading.Event()
+        self._config = TASConfig()
+        self._checker = CudaChecker()
+
+        self.decode_method = decode_method
         self.half = half
-        self.decodeBuffer = Queue(maxsize=64)
-        self.useOpenCV = False
         self.width = width
         self.height = height
         self.resize = resize
-        self.isFinished = False
-        self._frameAvailable = threading.Event()
-        self.bitDepth = bitDepth
-        self.videoInput = os.path.normpath(videoInput)
-        self.toTorch = toTorch
+        self.bit_depth = bit_depth
+        self.video_input = os.path.normpath(video_input)
         self.inpoint = inpoint
         self.outpoint = outpoint
 
-        # USED FOR DEBUGGING neLux
-        global neluxLog
-        if neluxLog:
-            try:
-                nelux.set_log_level(nelux.LogLevel.info)
-                neluxLog = True
-                logging.info("neLux logging enabled (level: info)")
-            except Exception as e:
-                logging.warning(f"Failed to enable neLux logging: {e}")
+        self.is_finished = False
+        self.decode_buffer: Queue[Tensor | NDArray] = Queue(maxsize=64)
+        self.device_type = "cpu"
+        self.backend = backend
+        self.cuda_norm_stream: torch.cuda.Stream | None = None
 
-        if "%" not in videoInput and not os.path.exists(videoInput):
-            raise FileNotFoundError(f"Video file not found: {videoInput}")
-
-        self.cudaEnabled = False
-        if checker.cudaAvailable and toTorch:
+        if self._checker.cuda_available and self.backend == Backend.TORCH:
             try:
-                self.normStream = torch.cuda.Stream()
-                self.deviceType = "cuda"
-                self.cudaEnabled = True
-            except Exception as e:
-                logging.warning(
-                    f"CUDA stream init failed, falling back to CPU. Reason: {e}"
+                self.cuda_norm_stream = torch.cuda.Stream()
+                self.device_type = "cuda"
+            except Exception:
+                self._logger.error(
+                    f"CUDA stream initialization failed, falling back to CPU.\n{traceback.format_exc()}"
                 )
-                self.deviceType = "cpu"
-                self.cudaEnabled = False
-        else:
-            self.deviceType = "cpu"
-            self.cudaEnabled = False
-
-        self.backend = "pytorch" if toTorch else "numpy"
 
     def __call__(self):
-        """
-        Decodes frames from the video and stores them in the decodeBuffer.
-        """
-        decodedFrames = 0
-        global CachedReader
-        global CachedReaderMethod
-
+        """Decodes frames from the video and stores them in the decodeBuffer."""
+        decoded_frames = 0
         try:
-            decodedFrames += self._decodeWithnelux(self.decodeMethod)
+            decoded_frames += self._decode_with_nelux()
+        except Exception:
+            self._logger.error(f"NeLux decoding error:\n{traceback.format_exc()}")
 
-        except Exception as e:
-            logging.error(f"nelux decoding error: {e}")
-
-            if self.decodeMethod != "cpu":
-                try:
-                    logging.warning(
-                        "nelux decode failed with non-CPU method; retrying with cpu."
-                    )
-                    decodedFrames += self._decodeWithnelux("cpu")
-                    self.decodeMethod = "cpu"
-                    return
-                except Exception as retry_e:
-                    logging.error(f"nelux CPU retry failed: {retry_e}")
-
-            logging.info("Attempting fallback to OpenCV decoder...")
-            try:
-                decodedFrames += self.decodeWithOpenCV()
-            except Exception as fallback_e:
-                logging.error(f"OpenCV fallback failed: {fallback_e}")
-
-        finally:
-            self.decodeBuffer.put(None)
-            self._frameAvailable.set()
-
-            self.isFinished = True
-            logging.info(f"Decoded {decodedFrames} frames")
-
-    def _decodeWithnelux(self, decodeMethod: str) -> int:
-        """
-        Decode using nelux. Returns number of frames decoded.
-        """
-        global CachedReader
-        global CachedReaderMethod
-
-        if decodeMethod == "nvdec":
-            CachedReader = None
-            CachedReaderMethod = None
-
-        if CachedReader is not None and CachedReaderMethod != decodeMethod:
-            CachedReader = None
-            CachedReaderMethod = None
-
-        if CachedReader is not None:
-            try:
-                logging.info(f"Reconfiguring cached VideoReader for {self.videoInput}")
-                CachedReader.reconfigure(self.videoInput)
-            except Exception as e:
-                logging.warning(
-                    f"Failed to reconfigure VideoReader: {e}. Creating new instance."
+            if self.decode_method != "cpu":
+                self._logger.warning(
+                    "NeLux decode failed with non-CPU method; retrying with cpu."
                 )
-                CachedReader = None
-                CachedReaderMethod = None
+                self.decode_method = "cpu"
+                try:
+                    decoded_frames += self._decode_with_nelux()
+                    return
+                except Exception:
+                    self._logger.error(
+                        f"NeLux CPU retry failed:\n{traceback.format_exc()}"
+                    )
 
-        if CachedReader is None:
-            logging.info(
-                f"Initializing new VideoReader for {self.videoInput} ({decodeMethod})"
-            )
-            CachedReader = nelux.VideoReader(
-                self.videoInput,
-                decode_accelerator=decodeMethod,
-                backend=self.backend,
-            )
-            CachedReaderMethod = decodeMethod
+            self._logger.info("Attempting fallback to OpenCV decoder...")
+            try:
+                decoded_frames += self._decode_with_opencv()
+            except Exception:
+                self._logger.error(f"OpenCV fallback failed:\n{traceback.format_exc()}")
+        finally:
+            # self.decode_buffer.put(None)
+            # self._frame_available.set()
+
+            self.is_finished = True
+            self._logger.info(f"Decoded {decoded_frames} frames")
+
+    def _decode_with_nelux(self) -> int:
+        """Returns the number of frames decoded."""
+        self._logger.info(
+            f"Initializing new VideoReader for {self.video_input} ({self.decode_method})"
+        )
+
+        reader = nelux.VideoReader(
+            self.video_input,
+            decode_accelerator=self.decode_method,
+            backend=self.backend.value,
+        )
 
         if self.inpoint > 0 or self.outpoint > 0:
-            reader = CachedReader([float(self.inpoint), float(self.outpoint)])
-        else:
-            reader = CachedReader
+            reader[self.inpoint, self.outpoint]
 
-        decodedFrames = 0
-        for frame in reader:
-            if self.toTorch:
-                frame = self.processFrameToTorch(
-                    frame, self.normStream if self.cudaEnabled else None
-                )
-            self.decodeBuffer.put(frame)
-            self._frameAvailable.set()
-            decodedFrames += 1
+        decoded_frames = 0
 
-        return decodedFrames
+        match self.backend:
+            case Backend.TORCH:
+                for frame in reader:
+                    frame = self.convert_frame_format(frame, self.cuda_norm_stream)  # type: ignore
+                    self.decode_buffer.put(frame)
+                    self._frame_available.set()
+                    decoded_frames += 1
+            case Backend.NUMPY:
+                for frame in reader:
+                    self.decode_buffer.put(frame)
+                    self._frame_available.set()
+                    decoded_frames += 1
+        return decoded_frames
 
-    def decodeWithOpenCV(self):
-        """
-        Helper method to decode using OpenCV when nelux fails.
-        Returns the number of frames decoded.
-        """
-        logging.info(f"Initializing OpenCV VideoCapture for {self.videoInput}")
+    def _decode_with_opencv(self) -> int:
+        """Returns the number of frames decoded."""
 
-        cap = cv2.VideoCapture(self.videoInput)
+        def opencv_decode_helper(cap: cv2.VideoCapture) -> Tensor | None:
+            ret, frame = cap.read()
+            if not ret:
+                return None
+
+            pts_millis = cap.get(cv2.CAP_PROP_POS_MSEC)
+            pts_seconds = (
+                (pts_millis / 1000.0) if pts_millis and pts_millis > 0 else None
+            )
+
+            if pts_seconds is not None and end_time > 0 and pts_seconds >= end_time:
+                return None
+
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            return torch.from_numpy(frame)
+
+        self._logger.info(f"Initializing OpenCV VideoCapture for {self.video_input}")
+
+        cap = cv2.VideoCapture(self.video_input)
         if not cap.isOpened():
-            raise RuntimeError(f"Failed to open video with OpenCV: {self.videoInput}")
+            raise RuntimeError(f"Failed to open video with OpenCV: {self.video_input}")
 
-        totalFramesDecoded = 0
-        startTime = float(self.inpoint)
-        endTime = float(self.outpoint)
+        decoded_frames = 0
+        start_time = self.inpoint
+        end_time = self.outpoint
 
         try:
-            if startTime > 0:
-                cap.set(cv2.CAP_PROP_POS_MSEC, startTime * 1000.0)
+            if start_time > 0:
+                cap.set(cv2.CAP_PROP_POS_MSEC, start_time * 1000.0)
 
-            while True:
-                ret, frame = cap.read()
-                if not ret:
-                    break
-
-                ptsMillis = cap.get(cv2.CAP_PROP_POS_MSEC)
-                ptsSeconds = (
-                    (ptsMillis / 1000.0) if ptsMillis and ptsMillis > 0 else None
-                )
-
-                if ptsSeconds is not None and endTime > 0 and ptsSeconds >= endTime:
-                    break
-
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                frame = torch.from_numpy(frame)
-
-                if self.toTorch:
-                    frame = self.processFrameToTorch(
-                        frame,
-                        self.normStream if self.cudaEnabled else None,
-                    )
-                else:
-                    frame = frame.numpy()
-
-                self.decodeBuffer.put(frame)
-                self._frameAvailable.set()
-                totalFramesDecoded += 1
-
-        except Exception as e:
-            logging.error(f"Error during OpenCV decoding loop: {e}")
-            raise
+            match self.backend:
+                case Backend.TORCH:
+                    while True:
+                        frame = opencv_decode_helper(cap)
+                        if frame is None:
+                            break
+                        frame = self.convert_frame_format(frame, self.cuda_norm_stream)
+                        self.decode_buffer.put(frame)
+                        self._frame_available.set()
+                        decoded_frames += 1
+                case Backend.NUMPY:
+                    while True:
+                        frame = opencv_decode_helper(cap)
+                        if frame is None:
+                            break
+                        frame = frame.numpy()
+                        self.decode_buffer.put(frame)
+                        self._frame_available.set()
+                        decoded_frames += 1
         finally:
             cap.release()
 
-        return totalFramesDecoded
+        return decoded_frames
 
-    def processFrameToTorch(self, frame, normStream=None, channels_first=False):
+    def convert_frame_format(
+        self,
+        frame: Tensor,
+        norm_stream: torch.cuda.Stream | None = None,
+    ) -> Tensor:
+        """Converts a single frame with optimized memory handling.
+
+        Parameters
+        ----------
+        frame : Tensor
+            A frame in NeLux format (HWC format)
+        norm_stream : torch.cuda.Stream | None, optional
+            The CUDA stream for normalization, by default None.
+
+        Returns
+        -------
+        Tensor
+            The frame converted to BCHW format.
         """
-        Processes a single frame with optimized memory handling.
-
-        Args:
-            frame: The frame to process as nelux frame (HWC format).
-            normStream: The CUDA stream for normalization (if applicable).
-            channels_first: If True, frame is (C, H, W). If False, (H, W, C).
-
-        Returns:
-            The processed frame as a torch tensor in BCHW format.
-        """
-        import torch
-        from torch.nn import functional as F
-
         norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
-        if self.cudaEnabled:
-            with torch.cuda.stream(normStream):
-                try:
-                    frame = frame.pin_memory()
-                except Exception:
-                    pass
-                frame = frame.to(
-                    device="cuda",
-                    non_blocking=True,
-                    dtype=torch.float16 if self.half else torch.float32,
-                )
 
-                frame = frame.permute(2, 0, 1).mul(norm).clamp(0, 1)
-
-                if self.resize:
-                    frame = F.interpolate(
-                        frame.unsqueeze(0),
-                        size=(self.height, self.width),
-                        mode="bicubic",
-                        align_corners=False,
-                    )
-                else:
-                    frame = frame.unsqueeze(0)
-
-            if normStream is not None:
-                normStream.synchronize()
-            return frame
-        else:
+        with torch.cuda.stream(norm_stream):
             try:
                 frame = frame.pin_memory()
             except Exception:
                 pass
 
             frame = frame.to(
-                device="cpu",
-                non_blocking=False,
+                device=self.device_type,
+                non_blocking=norm_stream is not None,
                 dtype=torch.float16 if self.half else torch.float32,
             )
 
-            frame = frame.permute(2, 0, 1)
-
-            frame.mul_(norm)
-            frame.clamp_(0, 1)
+            frame = frame.permute(2, 0, 1).mul(norm).clamp(0, 1)
 
             if self.resize:
-                frame = F.interpolate(
+                frame = functional.interpolate(
                     frame.unsqueeze(0),
                     size=(self.height, self.width),
                     mode="bicubic",
@@ -323,52 +259,47 @@ class BuildBuffer:
             else:
                 frame = frame.unsqueeze(0)
 
-            return frame
+        if norm_stream is not None:
+            norm_stream.synchronize()
 
-    def read(self):
-        """
-        Reads a frame from the decodeBuffer.
+        return frame
 
-        Returns:
+    def read(self) -> Tensor | NDArray:
+        """Reads a frame from the decodeBuffer.
+
+        Returns
+        -------
+        Tensor | NDArray
             The next frame from the decodeBuffer.
         """
-        return self.decodeBuffer.get()
+        return self.decode_buffer.get()
 
-    def peek(self):
-        """
-        Peeks at the next frame in the decodeBuffer without removing it.
+    def peek(self) -> Tensor | NDArray | None:
+        """Peeks at the next frame in the decodeBuffer without removing it.
 
-        Returns:
-            The next frame from the decodeBuffer, or None if decoding is finished and queue is empty.
+        Returns
+        -------
+        Tensor | NDArray | None
+            The next frame from the decodeBuffer, or None if decoding is finished and the queue is empty.
         """
         while True:
-            with self.decodeBuffer.mutex:
-                if len(self.decodeBuffer.queue) > 0:
-                    return self.decodeBuffer.queue[0]
+            with self.decode_buffer.mutex:
+                if len(self.decode_buffer.queue) > 0:
+                    return self.decode_buffer.queue[0]
 
-            if self.isFinished:
+            if self.is_finished:
                 return None
 
-            self._frameAvailable.wait(timeout=0.1)
-            self._frameAvailable.clear()
+            self._frame_available.wait(timeout=0.1)
+            self._frame_available.clear()
 
-    def isReadFinished(self) -> bool:
-        """
-        Returns:
-            Whether the decoding process is finished.
-        """
-        return self.isFinished
+    def is_read_finished(self) -> bool:
+        """Returns True if the decoding process is finished."""
+        return self.is_finished
 
-    def isQueueEmpty(self) -> bool:
-        """
-        Returns:
-            Whether the decoding buffer is empty.
-        """
-
-        if self.decodeBuffer.empty() and self.isFinished:
-            return True
-        else:
-            return False
+    def is_queue_empty(self) -> bool:
+        """Returns True if the decoding buffer is empty and the decoding process is finished."""
+        return self.decode_buffer.empty() and self.is_finished
 
 
 class WriteBuffer:
@@ -775,7 +706,7 @@ class WriteBuffer:
 
             useCuda = False
             transferStream = None
-            if checker.cudaAvailable:
+            if checker.cuda_available:
                 try:
                     transferStream = torch.cuda.Stream()
                     useCuda = True
@@ -968,7 +899,7 @@ class NeluxWriteBuffer:
         self.codec = codec_map.get(encode_method, "h264_nvenc")
         self.encoder = None
 
-        if checker.cudaAvailable:
+        if checker.cuda_available:
             self.CudaStream = torch.cuda.Stream()
 
         logging.info(
