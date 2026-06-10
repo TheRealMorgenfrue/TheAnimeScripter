@@ -1,10 +1,10 @@
 from typing import Self, override
 
+import nelux
 from applib import (
     BaseTemplate,
     ColorPickerOption,
     ComboBoxOption,
-    CoreArgs,
     FileSelectorOption,
     GUIMessage,
     LoggingManager,
@@ -18,6 +18,8 @@ from applib import (
     validate_theme,
 )
 
+from module.config.runners.actions.nelux_actions import set_nelux_log_level
+from module.config.runners.validators.validate_nelux import validate_nelux_loglevel
 from src.module.config.tas_args import TASArgs
 from src.module.config.templates.tas_template_parts.deduplication_template_part import (
     tas_deduplication_template,
@@ -81,17 +83,19 @@ class TASTemplate(BaseTemplate):
                         "TODO: Implement. Create and use a preset configuration file based on the current arguments"
                     ),
                 ),
-                "preview": Option(
-                    default=False,
-                    ui_group="compat_bench",
-                    ui_info=GUIMessage("Preview the video during processing"),
-                ),
                 "loglevel": ComboBoxOption(
-                    default="INFO" if CoreArgs._core_is_release else "DEBUG",
+                    default="INFO" if TASArgs.is_release else "DEBUG",
                     actions=[LoggingManager().set_level],
-                    ui_info=GUIMessage(f"Set log level for {CoreArgs._core_app_name}"),
+                    ui_info=GUIMessage(f"Set log level for {TASArgs.name}"),
                     validators=[validate_loglevel],
                     values=LoggingManager.LogLevel._member_names_,
+                ),
+                "nelux_loglevel": ComboBoxOption(
+                    default="OFF" if TASArgs.is_release else "INFO",
+                    actions=[set_nelux_log_level],
+                    ui_info=GUIMessage("Set log level for NeLux"),
+                    validators=[validate_nelux_loglevel],
+                    values=[level.upper() for level in nelux.LogLevel._member_names_],
                 ),
             },
             "Appearance": {
