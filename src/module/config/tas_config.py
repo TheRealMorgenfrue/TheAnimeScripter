@@ -18,13 +18,12 @@ class TASConfig(ConfigBase):
     def __init__(self) -> None:
         if not self._created:
             template = TASTemplate()
-            template.name = TASArgs.main_config_name
             validation_model = CoreValidationModelGenerator().get_generic_model(
-                model_name=TASArgs.main_config_name,
+                model_name=template.name,
                 template=template,
             )
             super().__init__(
-                name=TASArgs.main_config_name,
+                name=template.name,
                 template=template,
                 validation_model=validation_model,
                 input_data=TASArgs.main_config_path,
