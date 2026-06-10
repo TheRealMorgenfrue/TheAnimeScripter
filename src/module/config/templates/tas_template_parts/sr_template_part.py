@@ -10,19 +10,19 @@ from applib import (
 
 def tas_sr_template() -> dict:
     return {
-        "upscale": Option(
+        "sr": Option(
             default=False,
             ui_group="g_sr",
             ui_group_parent=[UIGroups.NESTED_CHILDREN],
             ui_info=GUIMessage("Upscale the video"),
         ),
-        "upscale_factor": ComboBoxOption(
+        "sr_factor": ComboBoxOption(
             default=2,
             values=[2, 3, 4],
             ui_group="g_sr",
             ui_info=GUIMessage("Upscaling factor"),
         ),
-        "upscale_method": ComboBoxOption(
+        "sr_model": ComboBoxOption(
             default="shufflecugan",
             values=[
                 "shufflecugan",

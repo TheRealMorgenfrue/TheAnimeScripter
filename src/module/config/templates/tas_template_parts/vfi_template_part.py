@@ -3,20 +3,20 @@ from applib import ComboBoxOption, GUIMessage, NumberOption, Option, UIGroups
 
 def tas_vfi_template() -> dict:
     return {
-        "interpolation": Option(
+        "vfi": Option(
             default=False,
             ui_group="g_vfi",
             ui_group_parent=[UIGroups.NESTED_CHILDREN],
             ui_info=GUIMessage("Interpolate the video"),
         ),
-        "interpolate_factor": NumberOption(
+        "vfi_factor": NumberOption(
             default=2.0,
             min=0,
             max=None,
             ui_group="g_vfi",
             ui_info=GUIMessage("Interpolation factor"),
         ),
-        "interpolate_method": ComboBoxOption(
+        "vfi_model": ComboBoxOption(
             default="rife4.6",
             values=[
                 "distildrba",
@@ -115,7 +115,7 @@ def tas_vfi_template() -> dict:
             ui_group="g_vfi",
             ui_info=GUIMessage("Force static timestep generation for Rife CUDA"),
         ),
-        "interpolate_first": Option(
+        "vfi_first": Option(
             default=False,
             ui_group="g_vfi",
             ui_info=GUIMessage(
