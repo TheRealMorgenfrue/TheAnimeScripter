@@ -38,6 +38,9 @@ class TASArgs:
     main_template_name = "tas_template"
     main_themes = ["Light", "Dark", "System"]
 
+    ## Input metadata template
+    input_metadata_template_name = "input_metadata_template"
+
     # Configs
     config_dir = Path(app_dir, "configs")
 
