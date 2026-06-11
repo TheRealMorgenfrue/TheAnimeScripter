@@ -4,14 +4,12 @@ import subprocess
 import threading
 import time
 import traceback
-from enum import Enum
 from queue import Queue
 
 import cv2
 import nelux
 import torch
 from applib import LoggingManager
-from numpy.typing import NDArray
 from torch import Tensor
 from torch.nn import functional
 
@@ -19,11 +17,6 @@ from module.config.tas_config import TASConfig
 from src.module.utils.encodingSettings import getPixFMT, matchEncoder
 
 from .cuda_checker import CudaChecker
-
-
-class Backend(Enum):
-    TORCH = "pytorch"
-    NUMPY = "numpy"
 
 
 class ReadBuffer:
@@ -37,7 +30,6 @@ class ReadBuffer:
         width: int = 1920,
         height: int = 1080,
         bit_depth: str = "8bit",
-        backend: Backend = Backend.TORCH,
         decode_method: str = "cpu",
         batched: bool = False,
         batch_size: int = 1,
@@ -79,12 +71,11 @@ class ReadBuffer:
         self.outpoint = outpoint
 
         self.is_finished = False
-        self.decode_buffer: Queue[Tensor | NDArray] = Queue(maxsize=64)
+        self.decode_buffer: Queue[Tensor | None] = Queue(maxsize=64)
         self.device_type = "cpu"
-        self.backend = backend
         self.cuda_norm_stream: torch.cuda.Stream | None = None
 
-        if self._checker.cuda_available and self.backend == Backend.TORCH:
+        if self._checker.cuda_available:
             try:
                 self.cuda_norm_stream = torch.cuda.Stream()
                 self.device_type = "cuda"
@@ -120,8 +111,8 @@ class ReadBuffer:
             except Exception:
                 self._logger.error(f"OpenCV fallback failed:\n{traceback.format_exc()}")
         finally:
-            # self.decode_buffer.put(None)
-            # self._frame_available.set()
+            self.decode_buffer.put(None)
+            self._frame_available.set()
 
             self.is_finished = True
             self._logger.info(f"Decoded {decoded_frames} frames")
@@ -135,7 +126,7 @@ class ReadBuffer:
         reader = nelux.VideoReader(
             self.video_input,
             decode_accelerator=self.decode_method,
-            backend=self.backend.value,
+            backend="pytorch",
         )
 
         if self.inpoint > 0 or self.outpoint > 0:
@@ -143,39 +134,15 @@ class ReadBuffer:
 
         decoded_frames = 0
 
-        match self.backend:
-            case Backend.TORCH:
-                for frame in reader:
-                    frame = self.convert_frame_format(frame, self.cuda_norm_stream)  # type: ignore
-                    self.decode_buffer.put(frame)
-                    self._frame_available.set()
-                    decoded_frames += 1
-            case Backend.NUMPY:
-                for frame in reader:
-                    self.decode_buffer.put(frame)
-                    self._frame_available.set()
-                    decoded_frames += 1
+        for frame in reader:
+            frame = self._convert_frame_format(frame, self.cuda_norm_stream)  # type: ignore
+            self.decode_buffer.put(frame)
+            self._frame_available.set()
+            decoded_frames += 1
         return decoded_frames
 
     def _decode_with_opencv(self) -> int:
         """Returns the number of frames decoded."""
-
-        def opencv_decode_helper(cap: cv2.VideoCapture) -> Tensor | None:
-            ret, frame = cap.read()
-            if not ret:
-                return None
-
-            pts_millis = cap.get(cv2.CAP_PROP_POS_MSEC)
-            pts_seconds = (
-                (pts_millis / 1000.0) if pts_millis and pts_millis > 0 else None
-            )
-
-            if pts_seconds is not None and end_time > 0 and pts_seconds >= end_time:
-                return None
-
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            return torch.from_numpy(frame)
-
         self._logger.info(f"Initializing OpenCV VideoCapture for {self.video_input}")
 
         cap = cv2.VideoCapture(self.video_input)
@@ -183,38 +150,39 @@ class ReadBuffer:
             raise RuntimeError(f"Failed to open video with OpenCV: {self.video_input}")
 
         decoded_frames = 0
-        start_time = self.inpoint
-        end_time = self.outpoint
-
         try:
-            if start_time > 0:
-                cap.set(cv2.CAP_PROP_POS_MSEC, start_time * 1000.0)
+            if self.inpoint > 0:
+                cap.set(cv2.CAP_PROP_POS_MSEC, self.inpoint * 1000.0)
 
-            match self.backend:
-                case Backend.TORCH:
-                    while True:
-                        frame = opencv_decode_helper(cap)
-                        if frame is None:
-                            break
-                        frame = self.convert_frame_format(frame, self.cuda_norm_stream)
-                        self.decode_buffer.put(frame)
-                        self._frame_available.set()
-                        decoded_frames += 1
-                case Backend.NUMPY:
-                    while True:
-                        frame = opencv_decode_helper(cap)
-                        if frame is None:
-                            break
-                        frame = frame.numpy()
-                        self.decode_buffer.put(frame)
-                        self._frame_available.set()
-                        decoded_frames += 1
+            while True:
+                is_frame, frame = cap.read()
+                if not is_frame:
+                    break
+
+                pts_millis = cap.get(cv2.CAP_PROP_POS_MSEC)
+                pts_seconds = (
+                    (pts_millis / 1000.0) if pts_millis and pts_millis > 0 else None
+                )
+
+                if (
+                    pts_seconds is not None
+                    and self.outpoint > 0
+                    and pts_seconds >= self.outpoint
+                ):
+                    break
+
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frame = self._convert_frame_format(
+                    torch.from_numpy(frame), self.cuda_norm_stream
+                )
+                self.decode_buffer.put(frame)
+                self._frame_available.set()
+                decoded_frames += 1
         finally:
             cap.release()
-
         return decoded_frames
 
-    def convert_frame_format(
+    def _convert_frame_format(
         self,
         frame: Tensor,
         norm_stream: torch.cuda.Stream | None = None,
@@ -224,7 +192,7 @@ class ReadBuffer:
         Parameters
         ----------
         frame : Tensor
-            A frame in NeLux format (HWC format)
+            A frame in HWC format.
         norm_stream : torch.cuda.Stream | None, optional
             The CUDA stream for normalization, by default None.
 
@@ -233,8 +201,6 @@ class ReadBuffer:
         Tensor
             The frame converted to BCHW format.
         """
-        norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
-
         with torch.cuda.stream(norm_stream):
             try:
                 frame = frame.pin_memory()
@@ -247,6 +213,7 @@ class ReadBuffer:
                 dtype=torch.float16 if self.half else torch.float32,
             )
 
+            norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
             frame = frame.permute(2, 0, 1).mul(norm).clamp(0, 1)
 
             if self.resize:
@@ -264,22 +231,22 @@ class ReadBuffer:
 
         return frame
 
-    def read(self) -> Tensor | NDArray:
+    def read(self) -> Tensor | None:
         """Reads a frame from the decodeBuffer.
 
         Returns
         -------
-        Tensor | NDArray
+        Tensor
             The next frame from the decodeBuffer.
         """
         return self.decode_buffer.get()
 
-    def peek(self) -> Tensor | NDArray | None:
+    def peek(self) -> Tensor | None:
         """Peeks at the next frame in the decodeBuffer without removing it.
 
         Returns
         -------
-        Tensor | NDArray | None
+        Tensor | None
             The next frame from the decodeBuffer, or None if decoding is finished and the queue is empty.
         """
         while True:
