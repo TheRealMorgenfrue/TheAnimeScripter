@@ -1,8 +1,8 @@
-import logging
 import os
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from fractions import Fraction
+from math import ceil
 from queue import Queue
 from time import time
 
@@ -15,9 +15,8 @@ from tqdm import tqdm
 from module.config.tas_args import TASArgs
 from module.config.tas_config import TASConfig
 from module.initializeModels import initializeModels
-from module.utils.getVideoMetadata import get_video_metadata
+from module.utils.get_video_metadata import get_video_metadata
 from module.utils.io_buffers import ReadBuffer, createWriteBuffer
-from module.utils.progressBarLogic import ProgressBarLogic
 from src.module.utils.inputOutputHandler import PathConfiguration
 
 
@@ -32,39 +31,49 @@ class VideoProcessor:
     def __init__(self, path_config: PathConfiguration):
         self.logger = LoggingManager()
         self.config = TASConfig()
-        self.error_buffer = []  # Stores processing thread errors
+        self.error_buffer = []  # Stores errors from processing threads
 
         self.input = path_config
         self.input_metadata = get_video_metadata(self.input.input_path)
 
-        self.output_fps = self.input_metadata.get_value("fps")
-
         # Frame processing
         self.dedup_count = 0
         self.frame_counter = 0
-        self.next_frame = None
-        self.timesteps = None
-        self.frames_to_insert = 0
+        self.timesteps: list[float] | None = None
+        self.vfi_factor_numerator = 1
+        self.vfi_factor_denominator = 1
+        self.vfi_buffer: Queue | None = None
+
+        # Config args
+        self.dedup: bool = self.config.get_value("dedup")
+        self.restore: bool = self.config.get_value("restore")
+        self.vfi: bool = self.config.get_value("vfi")
+        self.vfi_factor: float = self.config.get_value("vfi_factor")
+        self.vfi_model: str = self.config.get_value("vfi_model")
+        self.vfi_first: bool = self.config.get_value("vfi_first")
+        self.sr: bool = self.config.get_value("sr")
 
         self._configure_processing_options()
         self._execute_pipeline()
 
     def _configure_processing_options(self) -> None:
         """Configure processing options based on the selected operations."""
-        if self.config.get_value("vfi"):
-            self.output_fps = self.output_fps * self.config.get_value("vfi_factor")
+        if self.vfi:
+            new_fps = self.input_metadata.get_value("fps") * self.vfi_factor
+            self.input_metadata.set_value("fps", new_fps, "Video")
 
-        if self.config.get_value("resize"):
-            resize_factor = self.config.get_value("resize_factor")
-            aspect_ratio = self.input_metadata.get_value("aspect_ratio")
-            old_width = self.input_metadata.get_value("width")
-            new_width = round(old_width * resize_factor / 2) * 2
-            new_height = round(old_width / aspect_ratio / 2) * 2
-            self.logger.info(
-                f"Resizing to {new_width}x{new_height} using {resize_factor} factor."
-            )
-            self.input_metadata.set_value("width", new_width, "Video")
-            self.input_metadata.set_value("height", new_height, "Video")
+        # TODO: Add "resize" back to the config
+        # if self.config.get_value("resize"):
+        #     resize_factor = self.config.get_value("resize_factor")
+        #     aspect_ratio: float = self.input_metadata.get_value("aspect_ratio")
+        #     old_width = self.input_metadata.get_value("width")
+        #     new_width = old_width * resize_factor / 2 * 2
+        #     new_height = old_width / aspect_ratio / 2 * 2
+        #     self.logger.info(
+        #         f"Resizing to {new_width}x{new_height} using {resize_factor} factor."
+        #     )
+        #     self.input_metadata.set_value("width", new_width, "Video")
+        #     self.input_metadata.set_value("height", new_height, "Video")
 
     def _execute_pipeline(self) -> None:
         """
@@ -73,6 +82,8 @@ class VideoProcessor:
         Prioritizes specialized operations (autoclip, depth, segment, object detection)
         over standard video processing.
         """
+        # TODO: Add scene detection (called Autoclip in TAS)
+
         if self.config.get_value("depth"):
             self.logger.info("Depth Estimation")
 
@@ -94,10 +105,11 @@ class VideoProcessor:
         else:
             self.start()
 
-    def process_frame(self, frame: Tensor) -> None:
+    def _process_frame(self, frame: Tensor, next_frame: Tensor | None) -> None:
         """
         Process a single video frame through the configured enhancement pipeline.
         """
+
         if self.dedup and self.dedup_process(frame):
             self.dedup_count += 1
             return
@@ -105,118 +117,127 @@ class VideoProcessor:
         if self.restore:
             frame = self.restore_process(frame)
 
-        if self.interpolate:
-            if isinstance(self.interpolateFactor, float):
-                currentIDX = self.frame_counter
-                nextIDX = currentIDX + 1
+        if self.vfi:
+            if isinstance(self.vfi, float):
+                current_index = self.frame_counter
+                next_index = current_index + 1
 
-                outputStart = (currentIDX * self.factorNum) // self.factorDen
-                outputEnd = (nextIDX * self.factorNum) // self.factorDen
+                output_start = (
+                    current_index * self.vfi_factor_numerator
+                ) // self.vfi_factor_denominator
+                output_end = (
+                    next_index * self.vfi_factor_numerator
+                ) // self.vfi_factor_denominator
 
-                self.frames_to_insert = outputEnd - outputStart - 1
+                frames_to_insert = output_end - output_start - 1
 
                 self.timesteps = []
-                for i in range(1, self.frames_to_insert + 1):
-                    outputIDX = outputStart + i
-                    t = (outputIDX * self.factorDen % self.factorNum) / self.factorNum
+                for i in range(1, frames_to_insert + 1):
+                    outputIDX = output_start + i
+                    t = (
+                        outputIDX
+                        * self.vfi_factor_denominator
+                        % self.vfi_factor_numerator
+                    ) / self.vfi_factor_numerator
                     self.timesteps.append(t)
 
                 self.frame_counter += 1
             else:
-                self.frames_to_insert = int(self.interpolateFactor) - 1
+                frames_to_insert = int(self.vfi_factor) - 1
                 self.timesteps = None
 
-        if self.interpolateFirst:
-            self.ifInterpolateFirst(frame)
+        if self.vfi_first:
+            self._vfi_first(frame, next_frame, frames_to_insert)
         else:
-            self.ifInterpolateLast(frame)
+            self._vfi_last(frame, next_frame, frames_to_insert)
 
-    def ifInterpolateFirst(self, frame: Tensor) -> None:
+    def _vfi_first(
+        self, frame: Tensor, next_frame: Tensor | None, frames_to_insert: int
+    ) -> None:
         """Process frame with interpolation-first pipeline order."""
-        if self.interpolate:
-            if self.interpolateMethod.startswith(("distildrba", "atr")):
+        if self.vfi and self.vfi_buffer is not None:
+            if next_frame is not None:
                 self.interpolate_process(
                     frame,
-                    self.next_frame,
-                    self.interpQueue,
-                    self.frames_to_insert,
+                    next_frame,
+                    self.vfi_buffer,
+                    frames_to_insert,
                     self.timesteps,
                 )
             else:
                 self.interpolate_process(
-                    frame, self.interpQueue, self.frames_to_insert, self.timesteps
+                    frame, self.vfi_buffer, frames_to_insert, self.timesteps
                 )
 
-        if self.upscale:
-            if self.interpolate:
-                while not self.interpQueue.empty():
-                    self.writeBuffer.write(
-                        self.upscale_process(self.interpQueue.get(), self.next_frame)
+        if self.sr:
+            if self.vfi and self.vfi_buffer is not None:
+                while not self.vfi_buffer.empty():
+                    self.write_buffer.write(
+                        self.upscale_process(self.vfi_buffer.get(), next_frame)
                     )
-
-                self.writeBuffer.write(self.upscale_process(frame, self.next_frame))
-
-            else:
-                self.writeBuffer.write(self.upscale_process(frame, self.next_frame))
+            self.write_buffer.write(self.upscale_process(frame, next_frame))
 
         else:
-            if self.interpolate:
-                while not self.interpQueue.empty():
-                    self.writeBuffer.write(self.interpQueue.get())
-            self.writeBuffer.write(frame)
+            if self.vfi and self.vfi_buffer is not None:
+                while not self.vfi_buffer.empty():
+                    self.write_buffer.write(self.vfi_buffer.get())
+            self.write_buffer.write(frame)
 
-    def ifInterpolateLast(self, frame: Tensor) -> None:
+    def _vfi_last(
+        self, frame: Tensor, next_frame: Tensor | None, frames_to_insert: int
+    ) -> None:
         """Process frame with interpolation-last pipeline order."""
-        if self.upscale:
-            frame = self.upscale_process(frame, self.next_frame)
+        if self.sr:
+            frame = self.upscale_process(frame, next_frame)
 
-        if self.interpolate:
-            if self.interpolateMethod.startswith(("distildrba", "atr")):
+        if self.vfi:
+            if next_frame is not None:
                 self.interpolate_process(
                     frame,
-                    self.next_frame,
-                    self.writeBuffer,
-                    self.frames_to_insert,
+                    next_frame,
+                    self.write_buffer,
+                    frames_to_insert,
                     self.timesteps,
                 )
             else:
                 self.interpolate_process(
-                    frame, self.writeBuffer, self.frames_to_insert, self.timesteps
+                    frame, self.write_buffer, frames_to_insert, self.timesteps
                 )
 
-        self.writeBuffer.write(frame)
+        self.write_buffer.write(frame)
 
-    def process(self):
+    def _process(self):
         """
         Main processing loop that handles frame-by-frame video processing.
 
         Processes all frames through the configured enhancement pipeline and
         tracks processing statistics.
         """
-        frameCount = 0
+        increment = 1
+        total_frames_to_process = self.input_metadata.get_value(
+            "total_frames_to_process"
+        )
+        should_get_next_frame = self.config.get_value("sr_model") == "animesr" or (
+            self.vfi and self.vfi_model.startswith(("distildrba", "atr"))
+        )
 
-        if self.interpolate and isinstance(self.interpolateFactor, float):
-            factor = Fraction(self.interpolateFactor).limit_denominator(100)
-            self.factorNum = factor.numerator
-            self.factorDen = factor.denominator
+        if self.vfi:
+            increment = self.vfi_factor
 
-            increment = self.factorNum / self.factorDen
-            if increment.is_integer():
-                increment = int(increment)
-        else:
-            self.factorNum = self.interpolateFactor if self.interpolate else 1
-            self.factorDen = 1
-            increment = int(self.interpolateFactor) if self.interpolate else 1
+            if isinstance(self.vfi_factor, float):
+                factor = Fraction(self.vfi_factor).limit_denominator(100)
+                self.vfi_factor_numerator = factor.numerator
+                self.vfi_factor_denominator = factor.denominator
+            else:
+                self.vfi_factor_numerator = self.vfi_factor
 
-        self.timesteps = None
-        self.frames_to_insert = self.interpolateFactor - 1 if self.interpolate else 0
-
-        if self.interpolate and self.interpolateFirst:
-            self.interpQueue = Queue(maxsize=round(self.interpolateFactor))
+            if self.vfi_first:
+                self.vfi_buffer = Queue(maxsize=ceil(self.vfi_factor))
 
         try:
-            for _ in tqdm(
-                range(self.total_frames),
+            for i in tqdm(
+                range(total_frames_to_process),
+                total=total_frames_to_process,  # * increment,
                 miniters=0,
                 ascii=False,
                 unit="FPS",
@@ -225,27 +246,20 @@ class VideoProcessor:
                 postfix={},
                 colour="#00ff00",
             ):
-                frame = self.readBuffer.read()
+                frame = self.read_buffer.read()
 
                 if frame is None:
                     # End of framebuffer
+                    self.logger.warning(
+                        f"Frame buffer ended unexpectedly - the output is most likely incomplete. Processed {i} of {total_frames_to_process} frames"
+                    )
                     break
 
-                if self.upscaleMethod == "animesr" or (
-                    self.interpolate
-                    and self.interpolateMethod.startswith(("distildrba", "atr"))
-                ):
-                    self.next_frame = self.readBuffer.peek()
-                self.process_frame(frame)
-
-            self.writeBuffer.close()
-
+                next_frame = self.read_buffer.peek() if should_get_next_frame else None
+                self._process_frame(frame, next_frame)
+            self.write_buffer.close()
         except Exception as e:
             self.error_buffer.append(e)
-
-        self.logger.info(f"Processed {frameCount} frames")
-        if self.dedup_count > 0:
-            self.logger.info(f"Deduplicated {self.dedup_count} frames")
 
     def start(self):
         """
@@ -265,7 +279,7 @@ class VideoProcessor:
 
         start_time: float = time()
 
-        self.readBuffer = ReadBuffer(
+        self.read_buffer = ReadBuffer(
             video_input=self.input,
             inpoint=self.inpoint,
             outpoint=self.outpoint,
@@ -277,7 +291,7 @@ class VideoProcessor:
             decode_method=self.decodeMethod,
         )
 
-        self.writeBuffer = createWriteBuffer(
+        self.write_buffer = createWriteBuffer(
             input=self.input,
             output=self.output,
             encode_method=self.encodeMethod,
@@ -302,15 +316,18 @@ class VideoProcessor:
             self._run_with_profiler()
         else:
             with ThreadPoolExecutor(max_workers=3) as executor:
-                executor.submit(self.readBuffer)
-                executor.submit(self.writeBuffer)
-                executor.submit(self.process)
+                executor.submit(self.read_buffer)
+                executor.submit(self.write_buffer)
+                executor.submit(self._process)
 
+        total_frames_to_process = self.input_metadata.get_value(
+            "total_frames_to_process"
+        )
         elapsed_time: float = time() - start_time
         total_fps: float = (
-            self.total_frames
+            total_frames_to_process
             / elapsed_time
-            * (1 if not self.interpolate else self.interpolateFactor)
+            * (1 if not self.vfi else self.vfi_factor)
         )
 
         self.logger.info(
@@ -339,9 +356,9 @@ class VideoProcessor:
             with_stack=False,
         ) as prof:
             with ThreadPoolExecutor(max_workers=3) as executor:
-                executor.submit(self.readBuffer)
-                executor.submit(self.writeBuffer)
-                executor.submit(self.process)
+                executor.submit(self.read_buffer)
+                executor.submit(self.write_buffer)
+                executor.submit(self._process)
 
         traceFile = os.path.join(profilePath, "trace.json")
         prof.export_chrome_trace(traceFile)
