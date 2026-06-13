@@ -23,15 +23,13 @@
         "rich-argparse==1.7.2", # DEPRECATED
         "tqdm>=4.67.3",
         # Video processing
-        "nelux==0.12.6",
+        "nelux>=0.12.6",
         # CPU inference
-        "torch==2.9.1",
-        "torchvision==0.24.1",
         "opencv-python-headless==4.13.0.92",
         "timm==1.0.24",
         "onnx==1.20.0",
         "vmaf-torch==1.1.0",
-        "scenedetect[opencv]",
+        "scenedetect",
         "onnxruntime==1.24.1; sys_platform == 'linux'",
         "torchcodec==0.9.1; sys_platform == 'linux'",
         "openvino==2025.4.1; sys_platform == 'windows'",
@@ -56,35 +54,35 @@
     [project.optional-dependencies]
         # Compute platforms (Currently only NVIDIA)
         ada=[
-            "torch==2.9.1",
-            "torchvision==0.24.1",
-            "tensorrt==10.15.1.29",
+            "torch==2.12.0",
+            "torchvision>=0.24.1",
+            "tensorrt>=11.0.0.114",
             "safetensors==0.7.0",
             "triton-windows==3.6.0.post25; sys_platform == 'windows'",
         ]
         ampere=[
-            "torch==2.9.1",
-            "torchvision==0.24.1",
-            "tensorrt==10.15.1.29",
+            "torch==2.12.0",
+            "torchvision>=0.24.1",
+            "tensorrt>=11.0.0.114",
             "safetensors==0.7.0",
             "triton-windows==3.6.0.post25; sys_platform == 'windows'",
         ]
         blackwell=[
-            "torch==2.9.1",
-            "torchvision==0.24.1",
-            "tensorrt==10.15.1.29",
+            "torch==2.12.0",
+            "torchvision>=0.24.1",
+            "tensorrt>=11.0.0.114",
             "safetensors==0.7.0",
             "triton-windows==3.6.0.post25; sys_platform == 'windows'",
         ]
-        pascal=["torch==2.9.1", "torchvision==0.24.1"]
+        cpu=["torch==2.12.0", "torchvision>=0.24.1"]
+        pascal=["torch==2.12.0", "torchvision>=0.24.1"]
         turing=[
-            "torch==2.9.1",
-            "torchvision==0.24.1",
-            "tensorrt==10.15.1.29",
+            "torch==2.12.0",
+            "torchvision>=0.24.1",
+            "tensorrt>=11.0.0.114",
             "safetensors==0.7.0",
             "triton-windows==3.6.0.post25; sys_platform == 'windows'",
         ]
-
 
     [project.urls]
         Documentation="https://example.com"
@@ -98,6 +96,7 @@
 [tool.uv]
     conflicts=[
         [
+            {extra="cpu"},
             {extra="pascal"},
             {extra="turing"},
             {extra="ampere"},
@@ -109,6 +108,7 @@
     [tool.uv.sources]
         tensorrt={index="nvidia"}
         torch=[
+            {index="cpu", extra="cpu"},
             {index="cu126", extra="pascal"},
             {index="cu130", extra="turing"},
             {index="cu130", extra="ampere"},
@@ -116,6 +116,7 @@
             {index="cu130", extra="blackwell"},
         ]
         torchvision=[
+            {index="cu126", extra="cpu"},
             {index="cu126", extra="pascal"},
             {index="cu130", extra="turing"},
             {index="cu130", extra="ampere"},
@@ -127,7 +128,11 @@
         applib={path="../AppLib", editable=true}
 
     [[tool.uv.index]]
-        # This version of PyTorch supports Nvidia GPUs with Pascal arch or later
+        explicit=true
+        name="cpu"
+        url="https://download.pytorch.org/whl/cpu"
+
+    [[tool.uv.index]]
         explicit=true
         name="cu126"
         url="https://download.pytorch.org/whl/cu126"
