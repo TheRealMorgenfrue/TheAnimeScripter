@@ -11,6 +11,15 @@ from applib import LoggingManager
 
 
 class CudaChecker:
+    """
+    A dumb class to check if CUDA is available and to get the device name.
+    Just to avoid writing the same code over and over again.
+
+    Note: This class checks if CUDA is available in PyTorch, but does not
+    validate if the GPU architecture is compatible with modern CUDA kernels.
+    Use self.detect_gpu_architecture() to check for Pascal or older GPUs.
+    """
+
     _instance = None
 
     def __new__(cls) -> Self:
@@ -20,14 +29,6 @@ class CudaChecker:
         return cls._instance
 
     def __init__(self):
-        """
-        A dumb class to check if CUDA is available and to get the device name.
-        Just to avoid writing the same code over and over again.
-
-        Note: This class checks if CUDA is available in PyTorch, but does not
-        validate if the GPU architecture is compatible with modern CUDA kernels.
-        Use detectGPUArchitecture() to check for Pascal or older GPUs.
-        """
         if not self._created:
             self.logger = LoggingManager()
             try:
