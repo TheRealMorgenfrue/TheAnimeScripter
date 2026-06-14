@@ -6,18 +6,22 @@ from math import ceil
 from queue import Queue
 from time import time
 
-import torch
 from applib import LoggingManager
 from torch import Tensor
 from torch.profiler import ProfilerActivity, profile
 from tqdm import tqdm
 
-from module.config.tas_args import TASArgs
-from module.config.tas_config import TASConfig
-from module.initializeModels import initializeModels
-from module.utils.get_video_metadata import get_video_metadata
-from module.utils.io_buffers import ReadBuffer, createWriteBuffer
-from src.module.utils.inputOutputHandler import PathConfiguration
+from src.module.config.tas_args import TASArgs
+from src.module.config.tas_config import TASConfig
+from src.module.initializeModels import initialize_models
+from src.module.utils.cuda_checker import CudaChecker
+from src.module.utils.get_video_metadata import get_video_metadata
+from src.module.utils.io_buffers import (
+    ReadBuffer,
+    WriteBuffer,
+    create_write_buffer,
+)
+from src.module.utils.io_handler import PathConfiguration
 
 
 class VideoProcessor:
@@ -33,8 +37,8 @@ class VideoProcessor:
         self.config = TASConfig()
         self.error_buffer = []  # Stores errors from processing threads
 
-        self.input = path_config
-        self.input_metadata = get_video_metadata(self.input.input_path)
+        self.path = path_config
+        self.input_metadata = get_video_metadata(self.path.input_path)
 
         # Frame processing
         self.dedup_count = 0
@@ -43,10 +47,11 @@ class VideoProcessor:
         self.vfi_factor_numerator = 1
         self.vfi_factor_denominator = 1
         self.vfi_buffer: Queue | None = None
+        self.read_buffer: ReadBuffer | None = None
+        self.write_buffer: WriteBuffer | None = None
 
         # Config args
         self.dedup: bool = self.config.get_value("dedup")
-        self.restore: bool = self.config.get_value("restore")
         self.vfi: bool = self.config.get_value("vfi")
         self.vfi_factor: float = self.config.get_value("vfi_factor")
         self.vfi_model: str = self.config.get_value("vfi_model")
@@ -60,20 +65,14 @@ class VideoProcessor:
         """Configure processing options based on the selected operations."""
         if self.vfi:
             new_fps = self.input_metadata.get_value("fps") * self.vfi_factor
-            self.input_metadata.set_value("fps", new_fps, "Video")
+            self.input_metadata.set_value("fps", new_fps)
 
-        # TODO: Add "resize" back to the config
-        # if self.config.get_value("resize"):
-        #     resize_factor = self.config.get_value("resize_factor")
-        #     aspect_ratio: float = self.input_metadata.get_value("aspect_ratio")
-        #     old_width = self.input_metadata.get_value("width")
-        #     new_width = old_width * resize_factor / 2 * 2
-        #     new_height = old_width / aspect_ratio / 2 * 2
-        #     self.logger.info(
-        #         f"Resizing to {new_width}x{new_height} using {resize_factor} factor."
-        #     )
-        #     self.input_metadata.set_value("width", new_width, "Video")
-        #     self.input_metadata.set_value("height", new_height, "Video")
+        if self.sr:
+            sr_factor = self.config.get_value("sr_factor")
+            new_width = self.input_metadata.get_value("width") * sr_factor
+            new_height = self.input_metadata.get_value("height") * sr_factor
+            self.input_metadata.set_value("width", new_width)
+            self.input_metadata.set_value("height", new_height)
 
     def _execute_pipeline(self) -> None:
         """
@@ -114,9 +113,6 @@ class VideoProcessor:
             self.dedup_count += 1
             return
 
-        if self.restore:
-            frame = self.restore_process(frame)
-
         if self.vfi:
             if isinstance(self.vfi, float):
                 current_index = self.frame_counter
@@ -155,7 +151,7 @@ class VideoProcessor:
         self, frame: Tensor, next_frame: Tensor | None, frames_to_insert: int
     ) -> None:
         """Process frame with interpolation-first pipeline order."""
-        if self.vfi and self.vfi_buffer is not None:
+        if self.vfi:
             if next_frame is not None:
                 self.interpolate_process(
                     frame,
@@ -170,7 +166,7 @@ class VideoProcessor:
                 )
 
         if self.sr:
-            if self.vfi and self.vfi_buffer is not None:
+            if self.vfi:
                 while not self.vfi_buffer.empty():
                     self.write_buffer.write(
                         self.upscale_process(self.vfi_buffer.get(), next_frame)
@@ -178,7 +174,7 @@ class VideoProcessor:
             self.write_buffer.write(self.upscale_process(frame, next_frame))
 
         else:
-            if self.vfi and self.vfi_buffer is not None:
+            if self.vfi:
                 while not self.vfi_buffer.empty():
                     self.write_buffer.write(self.vfi_buffer.get())
             self.write_buffer.write(frame)
@@ -269,47 +265,32 @@ class VideoProcessor:
         the multi-threaded processing workflow.
         """
         (
-            self.new_width,
-            self.new_height,
             self.upscale_process,
             self.interpolate_process,
             self.restore_process,
             self.dedup_process,
-        ) = initializeModels(self)
+        ) = initialize_models(self)
 
         start_time: float = time()
 
+        width = self.input_metadata.get_value("width")
+        height = self.input_metadata.get_value("height")
+
         self.read_buffer = ReadBuffer(
-            video_input=self.input,
-            inpoint=self.inpoint,
-            outpoint=self.outpoint,
-            half=self.half,
-            resize=self.resize,
-            width=self.width,
-            height=self.height,
-            bit_depth=self.bitDepth,
-            decode_method=self.decodeMethod,
+            input_path=self.path.input_path,
+            width=width,
+            height=height,
         )
 
-        self.write_buffer = createWriteBuffer(
-            input=self.input,
-            output=self.output,
-            encode_method=self.encodeMethod,
-            custom_encoder=self.customEncoder,
-            width=self.new_width,
-            height=self.new_height,
-            fps=self.outputFPS,
-            sharpen=self.sharpen,
-            sharpen_sens=self.sharpenSens,
+        self.write_buffer = create_write_buffer(
+            encode_method=self.config.get_value("encode_method"),
+            input=self.path.input_path,
+            output=self.path.output_path,
+            width=width,
+            height=height,
+            fps=self.input_metadata.get_value("fps"),
             grayscale=False,
             transparent=False,
-            benchmark=self.benchmark,
-            bitDepth=self.bitDepth,
-            inpoint=self.inpoint,
-            outpoint=self.outpoint,
-            slowmo=self.slowmo,
-            output_scale_width=self.outputScaleWidth,
-            output_scale_height=self.outputScaleHeight,
         )
 
         if self.config.get_value("profile"):
@@ -339,6 +320,7 @@ class VideoProcessor:
         Run the processing pipeline with torch.profiler enabled.
         Uses a simplified approach compatible with multi-threaded execution on Windows.
         """
+        is_cuda_available = CudaChecker().cuda_available
         profilePath = os.path.join(TASArgs.app_dir, "profiler_trace")
         os.makedirs(profilePath, exist_ok=True)
 
@@ -346,7 +328,7 @@ class VideoProcessor:
 
         activities = [ProfilerActivity.CPU]
 
-        if torch.cuda.is_available():
+        if is_cuda_available:
             activities.append(ProfilerActivity.CUDA)
 
         with profile(
@@ -366,14 +348,11 @@ class VideoProcessor:
         self.logger.info("=== Profiler Summary (Top 20 by CUDA time) ===")
 
         try:
-            sortKey = (
-                "cuda_time_total" if torch.cuda.is_available() else "cpu_time_total"
-            )
+            sortKey = "cuda_time_total" if is_cuda_available else "cpu_time_total"
             summary = prof.key_averages().table(sort_by=sortKey, row_limit=20)
             self.logger.info(f"Profiler Summary:\n\t{summary}")
         except Exception:
             self.logger.error(
                 f"Could not print profiler summary\n{traceback.format_exc()}"
             )
-
         self.logger.info(f"Trace saved to: {traceFile}")
