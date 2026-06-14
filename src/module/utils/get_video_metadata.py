@@ -57,12 +57,11 @@ def get_video_metadata(input_path: str) -> InputMetadataConfig:
         raise MetadataError(msg)
 
     probe_data = json.loads(result.stdout)
-
     video_stream: dict | None = None
     for stream in probe_data["streams"]:
         # Get video stream
         if stream["codec_type"] == "video" and video_stream is None:
-            video_stream = stream["codec_type"]
+            video_stream = stream
 
     if video_stream is None:
         raise MetadataError("No video stream found")
