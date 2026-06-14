@@ -23,7 +23,7 @@ class TASConfig(ConfigBase):
                 template=template,
             )
             super().__init__(
-                name=template.name,
+                name=TASArgs.main_config_name,
                 template=template,
                 validation_model=validation_model,
                 input_data=TASArgs.main_config_path,
