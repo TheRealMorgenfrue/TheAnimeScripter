@@ -1,4 +1,4 @@
-import nelux
+from src.module.utils.types.nelux import NeluxLogLevel
 
 
 def validate_nelux_loglevel(loglevel: str) -> str:
@@ -19,11 +19,10 @@ def validate_nelux_loglevel(loglevel: str) -> str:
     ValueError
         The loglevel is invalid.
     """
-    loglevel = loglevel.lower()
-    if loglevel not in nelux.LogLevel._member_names_:
+    if loglevel.lower() not in NeluxLogLevel._member_names_:
         err_msg = (
             f"Invalid log level '{loglevel}'. "
-            + f"Expected one of '{nelux.LogLevel._member_names_}'"
+            + f"Expected one of '{NeluxLogLevel._member_names_}'"
         )
         raise ValueError(err_msg)
     return loglevel

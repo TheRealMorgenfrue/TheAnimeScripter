@@ -75,10 +75,10 @@ class TASTemplate(BaseTemplate):
                 ),
                 "nelux_loglevel": ComboBoxOption(
                     default="OFF" if TASArgs.is_release else "INFO",
-                    actions=[set_nelux_log_level],
+                    actions=set_nelux_log_level,
                     ui_info=GUIMessage("Set log level for NeLux"),
-                    validators=[validate_nelux_loglevel],
-                    values=[level.upper() for level in nelux.LogLevel._member_names_],
+                    validators=validate_nelux_loglevel,
+                    values=[level.upper() for level in NeluxLogLevel._member_names_],
                 ),
             },
             "Appearance": {
