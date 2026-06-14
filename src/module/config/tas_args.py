@@ -45,7 +45,7 @@ class TASArgs:
     config_dir = Path(app_dir, "configs")
 
     ## Main config
-    main_config_name = "TAS Config"
+    main_config_name = "TAS config"
     main_config_file = f"{main_config_name.replace(' ', '_').lower()}_config.toml"
     main_config_path = Path(config_dir, main_config_file)
 
