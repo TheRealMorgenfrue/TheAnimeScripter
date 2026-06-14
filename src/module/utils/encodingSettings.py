@@ -1,7 +1,7 @@
-from src.module.utils.logAndPrint import logAndPrint
+from applib import LoggingManager
 
 
-def matchEncoder(encode_method: str):
+def match_encoder(encode_method: str) -> list[str]:
     """
     encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
     """
@@ -307,76 +307,72 @@ def matchEncoder(encode_method: str):
     return command
 
 
-def getPixFMT(encode_method, bitDepth, grayscale, transparent):
+def get_pix_fmt(encode_method: str, bit_depth: str, grayscale: bool, transparent: bool):
     """
     Return (inputPixFormat, outputPixFormat, encode_method) based on settings.
     """
-    if bitDepth == "8bit":
-        defaultInPixFMT = "rgb24"
-        defaultOutPixFMT = "yuv420p"
+    if bit_depth == "8bit":
+        in_pix_fmt = "rgb24"
+        out_pix_fmt = "yuv420p"
     else:
-        defaultInPixFMT = "rgb48le"
-        defaultOutPixFMT = "yuv444p10le"
-
-    inPixFmt = defaultInPixFMT
-    outPixFmt = defaultOutPixFMT
-    enc = encode_method
+        in_pix_fmt = "rgb48le"
+        out_pix_fmt = "yuv444p10le"
 
     if transparent and encode_method not in ["prores_segment"]:
-        enc = "prores_segment"
-        inPixFmt = "rgba"
-        outPixFmt = "yuva444p10le"
+        encode_method = "prores_segment"
+        in_pix_fmt = "rgba"
+        out_pix_fmt = "yuva444p10le"
     elif grayscale:
-        if bitDepth == "8bit":
-            inPixFmt = "gray"
-            outPixFmt = "yuv420p"
+        if bit_depth == "8bit":
+            in_pix_fmt = "gray"
+            out_pix_fmt = "yuv420p"
         else:
-            inPixFmt = "gray16le"
-            outPixFmt = "yuv444p10le"
+            in_pix_fmt = "gray16le"
+            out_pix_fmt = "yuv444p10le"
     elif encode_method in ["x264_10bit", "x265_10bit", "x264_animation_10bit"]:
-        if bitDepth == "8bit":
-            inPixFmt = "rgb24"
-            outPixFmt = "yuv420p10le"
+        if bit_depth == "8bit":
+            in_pix_fmt = "rgb24"
+            out_pix_fmt = "yuv420p10le"
         else:
-            inPixFmt = "rgb48le"
-            outPixFmt = "yuv420p10le"
+            in_pix_fmt = "rgb48le"
+            out_pix_fmt = "yuv420p10le"
     elif encode_method in ["nvenc_h264"]:
-        if bitDepth == "8bit":
-            inPixFmt = "rgb24"
-            outPixFmt = "yuv420p"
+        if bit_depth == "8bit":
+            in_pix_fmt = "rgb24"
+            out_pix_fmt = "yuv420p"
         else:
-            logAndPrint(
-                "Warning: NVENC H.264 only supports 8-bit encoding. Falling back to 8-bit.",
-                "yellow",
+            # TODO: Make a validator
+            LoggingManager().warning(
+                "NVENC H.264 only supports 8-bit encoding. Falling back to 8-bit."
             )
 
-            inPixFmt = "rgb48le"
-            outPixFmt = "yuv420p"
+            in_pix_fmt = "rgb48le"
+            out_pix_fmt = "yuv420p"
     elif encode_method in [
         "nvenc_h265_10bit",
         "hevc_amf_10bit",
         "qsv_h265_10bit",
     ]:
-        if bitDepth == "8bit":
-            inPixFmt = "rgb24"
-            outPixFmt = "p010le"
+        if bit_depth == "8bit":
+            in_pix_fmt = "rgb24"
+            out_pix_fmt = "p010le"
         else:
-            inPixFmt = "rgb48le"
-            outPixFmt = "p010le"
+            in_pix_fmt = "rgb48le"
+            out_pix_fmt = "p010le"
     elif encode_method in ["prores"]:
-        if bitDepth == "8bit":
-            inPixFmt = "rgb24"
-            outPixFmt = "yuv444p10le"
+        if bit_depth == "8bit":
+            in_pix_fmt = "rgb24"
+            out_pix_fmt = "yuv444p10le"
         else:
-            inPixFmt = "rgb48le"
-            outPixFmt = "yuv444p10le"
+            in_pix_fmt = "rgb48le"
+            out_pix_fmt = "yuv444p10le"
 
     elif encode_method in "png":
-        if bitDepth == "8bit":
-            inPixFmt = "rgb24"
-            outPixFmt = "rgb24"
+        if bit_depth == "8bit":
+            in_pix_fmt = "rgb24"
+            out_pix_fmt = "rgb24"
         else:
-            inPixFmt = "rgb48le"
-            outPixFmt = "rgb48le"
+            in_pix_fmt = "rgb48le"
+            out_pix_fmt = "rgb48le"
 
-    return inPixFmt, outPixFmt, enc
+    return in_pix_fmt, out_pix_fmt, encode_method
