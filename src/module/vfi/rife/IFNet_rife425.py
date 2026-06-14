@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from .util.dynamic_scale import dynamicScale
 from .warplayer import warp
-from .dynamic_scale import dynamicScale
 
 
 def get_drm_t(drm, t, precision=1e-3):

@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from .util.dynamic_scale import dynamicScale
 from .warplayer import warp
-from .dynamic_scale import dynamicScale
 
 
 def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
@@ -39,10 +40,10 @@ def conv_bn(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=
 class Head(nn.Module):
     def __init__(self):
         super(Head, self).__init__()
-        self.cnn0 = nn.Conv2d(3, 32, 3, 2, 1)
-        self.cnn1 = nn.Conv2d(32, 32, 3, 1, 1)
-        self.cnn2 = nn.Conv2d(32, 32, 3, 1, 1)
-        self.cnn3 = nn.ConvTranspose2d(32, 8, 4, 2, 1)
+        self.cnn0 = nn.Conv2d(3, 16, 3, 2, 1)
+        self.cnn1 = nn.Conv2d(16, 16, 3, 1, 1)
+        self.cnn2 = nn.Conv2d(16, 16, 3, 1, 1)
+        self.cnn3 = nn.ConvTranspose2d(16, 4, 4, 2, 1)
         self.relu = nn.LeakyReLU(0.2, True)
 
     def forward(self, x, feat=False):
@@ -87,7 +88,7 @@ class IFBlock(nn.Module):
             ResConv(c),
         )
         self.lastconv = nn.Sequential(
-            nn.ConvTranspose2d(c, 4 * 6, 4, 2, 1), nn.PixelShuffle(2)
+            nn.ConvTranspose2d(c, 4 * 13, 4, 2, 1), nn.PixelShuffle(2)
         )
 
     def forward(self, x, flow=None, scale=1):
@@ -111,7 +112,8 @@ class IFBlock(nn.Module):
         )
         flow = tmp[:, :4] * scale
         mask = tmp[:, 4:5]
-        return flow, mask
+        feat = tmp[:, 5:]
+        return flow, mask, feat
 
 
 class IFNet(nn.Module):
@@ -119,19 +121,20 @@ class IFNet(nn.Module):
         self, ensemble=False, dynamicScale=False, scale=1, interpolateFactor=2
     ):
         super(IFNet, self).__init__()
-        self.block0 = IFBlock(7 + 16, c=192)
-        self.block1 = IFBlock(8 + 4 + 16, c=128)
-        self.block2 = IFBlock(8 + 4 + 16, c=96)
-        self.block3 = IFBlock(8 + 4 + 16, c=64)
+        self.block0 = IFBlock(7 + 8, c=192)
+        self.block1 = IFBlock(8 + 4 + 8 + 8, c=128)
+        self.block2 = IFBlock(8 + 4 + 8 + 8, c=96)
+        self.block3 = IFBlock(8 + 4 + 8 + 8, c=64)
+        self.block4 = IFBlock(8 + 4 + 8 + 8, c=24)
         self.encode = Head()
+
         self.f0 = None
         self.f1 = None
-        self.scale_list = [8 / scale, 4 / scale, 2 / scale, 1 / scale]
-        self.ensemble = ensemble
+        self.scale_list = [16 / scale, 8 / scale, 4 / scale, 2 / scale, 1 / scale]
         self.dynamicScale = dynamicScale
         self.counter = 1
         self.interpolateFactor = interpolateFactor
-        self.blocks = [self.block0, self.block1, self.block2, self.block3]
+        self.blocks = [self.block0, self.block1, self.block2, self.block3, self.block4]
 
     def cache(self):
         self.f0.copy_(self.f1, non_blocking=True)
@@ -139,7 +142,12 @@ class IFNet(nn.Module):
     def cacheReset(self, frame):
         self.f0 = self.encode(frame[:, :3])
 
-    def forward(self, img0, img1, timestep):
+    def forward(
+        self,
+        img0,
+        img1,
+        timestep=0.5,
+    ):
         if self.interpolateFactor == 2:
             if self.f0 is None:
                 self.f0 = self.encode(img0[:, :3])
@@ -159,35 +167,25 @@ class IFNet(nn.Module):
         merged = []
         warped_img0 = img0
         warped_img1 = img1
-
         if self.dynamicScale:
             scale = dynamicScale(img0, img1)
-            self.scale_list = [8 / scale, 4 / scale, 2 / scale, 1 / scale]
+            self.scale_list = [16 / scale, 8 / scale, 4 / scale, 2 / scale, 1 / scale]
+
         flow = None
-        for i in range(4):
+        for i in range(5):
             if flow is None:
-                flow, mask = self.blocks[i](
+                flow, mask, feat = self.blocks[i](
                     torch.cat(
                         (img0[:, :3], img1[:, :3], self.f0, self.f1, timestep), 1
                     ),
                     None,
                     scale=self.scale_list[i],
                 )
-                if self.ensemble:
-                    f_, m_ = self.blocks[i](
-                        torch.cat(
-                            (img1[:, :3], img0[:, :3], self.f1, self.f0, 1 - timestep),
-                            1,
-                        ),
-                        None,
-                        scale=self.scale_list[i],
-                    )
-                    flow = (flow + torch.cat((f_[:, 2:4], f_[:, :2]), 1)) / 2
-                    mask = (mask + (-m_)) / 2
+
             else:
                 wf0 = warp(self.f0, flow[:, :2])
                 wf1 = warp(self.f1, flow[:, 2:4])
-                fd, m0 = self.blocks[i](
+                fd, m0, feat = self.blocks[i](
                     torch.cat(
                         (
                             warped_img0[:, :3],
@@ -196,32 +194,14 @@ class IFNet(nn.Module):
                             wf1,
                             timestep,
                             mask,
+                            feat,
                         ),
                         1,
                     ),
                     flow,
                     scale=self.scale_list[i],
                 )
-                if self.ensemble:
-                    f_, m_ = self.blocks[i](
-                        torch.cat(
-                            (
-                                warped_img1[:, :3],
-                                warped_img0[:, :3],
-                                wf1,
-                                wf0,
-                                1 - timestep,
-                                -mask,
-                            ),
-                            1,
-                        ),
-                        torch.cat((flow[:, 2:4], flow[:, :2]), 1),
-                        scale=self.scale_list[i],
-                    )
-                    fd = (fd + torch.cat((f_[:, 2:4], f_[:, :2]), 1)) / 2
-                    mask = (m0 + (-m_)) / 2
-                else:
-                    mask = m0
+                mask = m0
                 flow = flow + fd
             warped_img0 = warp(img0, flow[:, :2])
             warped_img1 = warp(img1, flow[:, 2:4])

@@ -5,13 +5,13 @@ This module provides DirectML-compatible versions of all RIFE architectures
 using decomposed grid_sample operations.
 """
 
+import math
+
 import torch
 import torch.nn as nn
 from torch.nn.functional import interpolate
-import math
 
-from .grid_sample_directml import grid_sample_directml
-
+from .util.grid_sample_directml import grid_sample_directml
 
 # =============================================================================
 # Shared utilities

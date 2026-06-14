@@ -3,11 +3,11 @@ import math
 import os
 
 import torch
+from src.module.utils.downloadModels import downloadModels, weightsDir
+from src.module.utils.logAndPrint import logAndPrint
 from torch.nn import functional as F
 
-from src.module.utils.downloadModels import downloadModels, weightsDir
-from src.module.utils.isCudaInit import CudaChecker
-from src.module.utils.logAndPrint import logAndPrint
+from src.module.utils.cuda_checker import CudaChecker
 
 checker = CudaChecker()
 
@@ -50,10 +50,10 @@ class GMFSS:
 
         modelType = "union"
 
-        self.device = torch.device("cuda" if checker.cudaAvailable else "cpu")
+        self.device = torch.device("cuda" if checker.cuda_available else "cpu")
 
         torch.set_grad_enabled(False)
-        if checker.cudaAvailable:
+        if checker.cuda_available:
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
 
@@ -63,7 +63,7 @@ class GMFSS:
         self.model.eval().to(self.device, memory_format=torch.channels_last)
 
         self.dtype = torch.float
-        if checker.cudaAvailable and self.half:
+        if checker.cuda_available and self.half:
             self.model.half()
             self.dtype = torch.half
 
@@ -219,10 +219,10 @@ class GMFSSTensorRT:
 
         modelType = "union"
 
-        self.device = torch.device("cuda" if checker.cudaAvailable else "cpu")
+        self.device = torch.device("cuda" if checker.cuda_available else "cpu")
 
         torch.set_grad_enabled(False)
-        if checker.cudaAvailable:
+        if checker.cuda_available:
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
 
