@@ -200,7 +200,7 @@ class IOHandler:
             elif os.path.isfile(path):
                 ext = os.path.splitext(path)[1].lower()
                 if ext == ".txt":
-                    with open(path, "r") as file:
+                    with open(path) as file:
                         files = self._get_video_files(
                             [
                                 line.strip()
@@ -223,9 +223,12 @@ class IOHandler:
         """Returns the paths of video files found at the input location."""
         config = TASConfig()
         output_dir = config.get_value("output")
-        files = self._get_video_files(config.get_value("input"))
+        files = self._get_video_files([config.get_value("input")])
 
-        self.logger.info(f"Found {len(files)} videos to process")
+        input_count = len(files)
+        self.logger.info(
+            f"Found {input_count} video{'s' if input_count != 1 else ''} to process"
+        )
         self.logger.debug(f"Initializing output directory '{output_dir}'")
         os.makedirs(output_dir, exist_ok=True)
 
