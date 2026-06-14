@@ -26,9 +26,11 @@ import os
 import sys
 import traceback
 
+import torch  # Initialize torch before any other module in TAS. Required for NeLux  # noqa: F401
 from applib import CLIArguments, CoreApp, LoggingManager
 
 from src.app.interfaces.mainwindow import TASMainWindow
+from src.module.config.tas_args import TASArgs
 from src.module.config.tas_config import TASConfig
 from src.module.setup import process_arguments
 
@@ -47,21 +49,13 @@ def main():
         # CLI mode
         logger = LoggingManager()
 
-        if sys.platform == "win32":
-            try:
-                stream = "stdout"
-                sys.stdout.reconfigure(encoding="utf-8")
-                stream = "stderr"
-                sys.stderr.reconfigure(encoding="utf-8")
-            except Exception:
-                logger.error(
-                    f"Failed to reconfigure {stream}:\n{traceback.format_exc()}"
-                )
-
         try:
+            args = TASArgs()
             config = TASConfig()
             argument_handler = CLIArguments()
-            arg_parser = argument_handler.create_argparser(config)
+            arg_parser = argument_handler.create_argparser(
+                config, name=args.name, version=args._core_app_version
+            )
             args = arg_parser.parse_args()
             argument_handler.deserialize(args, config, merge=True)
             process_arguments()
