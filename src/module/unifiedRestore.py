@@ -2,11 +2,10 @@ import logging
 import os
 
 import torch
-
 from src.module.constants import ADOBE
 
+from .utils.cuda_checker import CudaChecker
 from .utils.downloadModels import downloadModels, modelsMap, weightsDir
-from .utils.isCudaInit import CudaChecker
 from .utils.logAndPrint import logAndPrint
 
 if ADOBE:
@@ -83,7 +82,7 @@ class UnifiedRestoreCuda:
             pass
 
         self.model = (
-            self.model.eval().cuda() if checker.cudaAvailable else self.model.eval()
+            self.model.eval().cuda() if checker.cuda_available else self.model.eval()
         )
 
         if self.half:

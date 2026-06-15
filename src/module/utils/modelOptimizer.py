@@ -1,6 +1,7 @@
-from torch.fx import GraphModule
-import torch
 import logging
+
+import torch
+from torch.fx import GraphModule
 
 
 class ModelOptimizer:

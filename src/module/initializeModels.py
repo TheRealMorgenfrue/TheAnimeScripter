@@ -10,11 +10,6 @@ import logging
 
 import torch
 
-from src.module.constants import ADOBE
-
-if ADOBE:
-    from src.module.utils.aeComms import progressState
-
 
 class RestoreChain:
     def __init__(self, restore_processes: list):
@@ -36,7 +31,7 @@ def objectDetection(self):
         self: VideoProcessor instance containing processing parameters
     """
     if "directml" in self.objDetectMethod or "openvino" in self.objDetectMethod:
-        from src.module.objectDetection.objectDetection import ObjectDetectionDML
+        from module.models.objectDetection.objectDetection import ObjectDetectionDML
 
         ObjectDetectionDML(
             self.input,
@@ -55,7 +50,9 @@ def objectDetection(self):
             self.objDetectDisableAnnotations,
         )
     elif "tensorrt" in self.objDetectMethod:
-        from src.module.objectDetection.objectDetection import ObjectDetectionTensorRT
+        from module.models.objectDetection.objectDetection import (
+            ObjectDetectionTensorRT,
+        )
 
         ObjectDetectionTensorRT(
             self.input,
@@ -74,7 +71,7 @@ def objectDetection(self):
             self.objDetectDisableAnnotations,
         )
     else:
-        from src.module.objectDetection.objectDetection import ObjectDetection
+        from module.models.objectDetection.objectDetection import ObjectDetection
 
         ObjectDetection(
             self.input,
@@ -120,7 +117,7 @@ def segment(self):
         NotImplementedError: If cartoon segmentation method is selected
     """
     if self.segmentMethod == "anime":
-        from src.module.segment.animeSegment import AnimeSegment
+        from module.models.segment.animeSegment import AnimeSegment
 
         AnimeSegment(
             self.input,
@@ -136,7 +133,7 @@ def segment(self):
             self.totalFrames,
         )
     elif self.segmentMethod == "anime-tensorrt":
-        from src.module.segment.animeSegment import AnimeSegmentTensorRT
+        from module.models.segment.animeSegment import AnimeSegmentTensorRT
 
         AnimeSegmentTensorRT(
             self.input,
@@ -152,7 +149,7 @@ def segment(self):
             self.totalFrames,
         )
     elif self.segmentMethod == "anime-directml":
-        from src.module.segment.animeSegment import AnimeSegmentDirectML
+        from module.models.segment.animeSegment import AnimeSegmentDirectML
 
         AnimeSegmentDirectML(
             self.input,
@@ -168,7 +165,7 @@ def segment(self):
             self.totalFrames,
         )
     elif self.segmentMethod == "anime-openvino":
-        from src.module.segment.animeSegment import AnimeSegmentOpenVino
+        from module.models.segment.animeSegment import AnimeSegmentOpenVino
 
         AnimeSegmentOpenVino(
             self.input,
@@ -204,7 +201,7 @@ def depth(self):
             | "distill_base_v2"
             | "distill_large_v2"
         ):
-            from src.module.depth.depth import DepthCuda
+            from module.models.depth.depth import DepthCuda
 
             DepthCuda(
                 self.input,
@@ -233,7 +230,7 @@ def depth(self):
             | "distill_base_v2-tensorrt"
             | "distill_large_v2-tensorrt"
         ):
-            from src.module.depth.depth import DepthTensorRTV2
+            from module.models.depth.depth import DepthTensorRTV2
 
             DepthTensorRTV2(
                 self.input,
@@ -261,7 +258,7 @@ def depth(self):
             | "distill_base_v2-directml"
             | "distill_large_v2-directml"
         ):
-            from src.module.depth.depth import DepthDirectMLV2
+            from module.models.depth.depth import DepthDirectMLV2
 
             DepthDirectMLV2(
                 self.input,
@@ -288,7 +285,7 @@ def depth(self):
             | "distill_base_v2-openvino"
             | "distill_large_v2-openvino"
         ):
-            from src.module.depth.depth import DepthDirectMLV2
+            from module.models.depth.depth import DepthDirectMLV2
 
             DepthDirectMLV2(
                 self.input,
@@ -316,7 +313,7 @@ def depth(self):
             | "og_distill_base_v2"
             | "og_distill_large_v2"
         ):
-            from src.module.depth.depth import OGDepthV2CUDA
+            from module.models.depth.depth import OGDepthV2CUDA
 
             OGDepthV2CUDA(
                 self.input,
@@ -338,7 +335,7 @@ def depth(self):
             )
 
         case "og_video_small_v2" | "og_video_base_v2" | "og_video_large_v2":
-            from src.module.depth.depth import VideoDepthAnythingCUDA
+            from module.models.depth.depth import VideoDepthAnythingCUDA
 
             VideoDepthAnythingCUDA(
                 self.input,
@@ -360,7 +357,7 @@ def depth(self):
             )
 
         case "video_small_v2" | "video_large_v2":
-            from src.module.depth.depth import VideoDepthAnythingTorch
+            from module.models.depth.depth import VideoDepthAnythingTorch
 
             VideoDepthAnythingTorch(
                 self.input,
@@ -389,7 +386,7 @@ def depth(self):
             | "og_distill_base_v2-tensorrt"
             | "og_distill_large_v2-tensorrt"
         ):
-            from src.module.depth.depth import OGDepthV2TensorRT
+            from module.models.depth.depth import OGDepthV2TensorRT
 
             OGDepthV2TensorRT(
                 self.input,
@@ -410,7 +407,7 @@ def depth(self):
             )
 
         case "og_small_v2-directml" | "og_base_v2-directml" | "og_large_v2-directml":
-            from src.module.depth.depth import OGDepthV2DirectML
+            from module.models.depth.depth import OGDepthV2DirectML
 
             OGDepthV2DirectML(
                 self.input,
@@ -431,7 +428,7 @@ def depth(self):
             )
 
         case "og_small_v2-openvino" | "og_base_v2-openvino" | "og_large_v2-openvino":
-            from src.module.depth.depth import OGDepthV2DirectML
+            from module.models.depth.depth import OGDepthV2DirectML
 
             OGDepthV2DirectML(
                 self.input,
@@ -452,7 +449,7 @@ def depth(self):
             )
 
         case "small_v3" | "base_v3":
-            from src.module.depth.depth import OGDepthV3CUDA
+            from module.models.depth.depth import OGDepthV3CUDA
 
             OGDepthV3CUDA(
                 self.input,
@@ -474,7 +471,7 @@ def depth(self):
             )
 
         case "small_v3-directml" | "base_v3-directml":
-            from src.module.depth.depth import DepthDirectMLV3
+            from module.models.depth.depth import DepthDirectMLV3
 
             DepthDirectMLV3(
                 self.input,
@@ -495,7 +492,7 @@ def depth(self):
             )
 
         case "small_v3-openvino" | "base_v3-openvino":
-            from src.module.depth.depth import DepthDirectMLV3
+            from module.models.depth.depth import DepthDirectMLV3
 
             DepthDirectMLV3(
                 self.input,
@@ -516,7 +513,7 @@ def depth(self):
             )
 
         case "small_v3-tensorrt" | "base_v3-tensorrt":
-            from src.module.depth.depth import DepthTensorRTV3
+            from module.models.depth.depth import DepthTensorRTV3
 
             DepthTensorRTV3(
                 self.input,
@@ -537,7 +534,7 @@ def depth(self):
             )
 
 
-def initializeModels(self):
+def initialize_models(width: int, height: int):
     """
     Initialize all AI models for the video processing pipeline.
 
@@ -562,11 +559,6 @@ def initializeModels(self):
 
     if self.upscale:
         from src.module.unifiedUpscale import UniversalPytorch
-
-        if ADOBE:
-            progressState.update(
-                {"status": f"Initializing upscale model: {self.upscaleMethod}..."}
-            )
 
         outputWidth *= self.upscaleFactor
         outputHeight *= self.upscaleFactor
@@ -807,7 +799,7 @@ def initializeModels(self):
                 )
 
             case "gmfss":
-                from src.module.gmfss.gmfss import GMFSS
+                from module.models.vfi.gmfss.gmfss import GMFSS
 
                 interpolateProcess = GMFSS(
                     int(self.interpolateFactor),
@@ -986,7 +978,7 @@ def initializeModels(self):
                         )
                     )
                 case "fastlinedarken":
-                    from src.module.extraArches.fastlinedarken import (
+                    from module.models.extraArches.fastlinedarken import (
                         FastLineDarkenWithStreams,
                     )
 
@@ -996,7 +988,9 @@ def initializeModels(self):
                         )
                     )
                 case "fastlinedarken-tensorrt":
-                    from src.module.extraArches.fastlinedarken import FastLineDarkenTRT
+                    from module.models.extraArches.fastlinedarken import (
+                        FastLineDarkenTRT,
+                    )
 
                     restoreProcesses.append(
                         FastLineDarkenTRT(
@@ -1014,7 +1008,7 @@ def initializeModels(self):
                     | "linethinner-medium-cuda"
                     | "linethinner-heavy-cuda"
                 ):
-                    from src.module.extraArches.linethinner import LineThin
+                    from module.models.extraArches.linethinner import LineThin
 
                     device = "cuda" if "cuda" in method else "cpu"
                     variant = method.replace("-cuda", "").replace("linethinner-", "")
@@ -1040,21 +1034,21 @@ def initializeModels(self):
 
         match self.dedupMethod:
             case "ssim":
-                from src.module.dedup.dedup import DedupSSIM
+                from module.models.dedup.dedup import DedupSSIM
 
                 dedupProcess = DedupSSIM(
                     self.dedupSens,
                 )
 
             case "mse":
-                from src.module.dedup.dedup import DedupMSE
+                from module.models.dedup.dedup import DedupMSE
 
                 dedupProcess = DedupMSE(
                     self.dedupSens,
                 )
 
             case "ssim-cuda":
-                from src.module.dedup.dedup import DedupSSIMCuda
+                from module.models.dedup.dedup import DedupSSIMCuda
 
                 dedupProcess = DedupSSIMCuda(
                     self.dedupSens,
@@ -1062,7 +1056,7 @@ def initializeModels(self):
                 )
 
             case "vmaf" | "vmaf-cuda":
-                from src.module.dedup.dedup import DedupVMAF
+                from module.models.dedup.dedup import DedupVMAF
 
                 dedupProcess = DedupVMAF(
                     dedupMethod=self.dedupMethod,
@@ -1071,7 +1065,7 @@ def initializeModels(self):
                 )
 
             case "mse-cuda":
-                from src.module.dedup.dedup import DedupMSECuda
+                from module.models.dedup.dedup import DedupMSECuda
 
                 dedupProcess = DedupMSECuda(
                     self.dedupSens,
@@ -1079,7 +1073,7 @@ def initializeModels(self):
                 )
 
             case "flownets":
-                from src.module.dedup.dedup import DedupFlownetS
+                from module.models.dedup.dedup import DedupFlownetS
 
                 dedupProcess = DedupFlownetS(
                     half=self.half,

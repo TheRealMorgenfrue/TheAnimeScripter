@@ -3,7 +3,7 @@ from time import time
 
 from applib import LoggingManager
 
-from src.module.utils.io_handler import IOHandler
+from module.io.io_handler import IOHandler
 from src.module.video_processor import VideoProcessor
 
 

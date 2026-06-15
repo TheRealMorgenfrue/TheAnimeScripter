@@ -1,9 +1,8 @@
 import os
 
+import src.module.constants as cs
 from scenedetect import FrameTimecode, SceneManager, VideoManager
 from scenedetect.detectors import AdaptiveDetector
-
-import src.module.constants as cs
 
 
 class AutoClip:

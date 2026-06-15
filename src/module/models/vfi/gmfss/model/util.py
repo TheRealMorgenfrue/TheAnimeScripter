@@ -6,7 +6,7 @@ from torch.nn.parameter import Parameter
 
 class MyPixelShuffle(nn.Module):
     def __init__(self, upscale_factor):
-        super(MyPixelShuffle, self).__init__()
+        super().__init__()
         self.upscale_factor = upscale_factor
 
     def forward(self, input):
@@ -20,7 +20,7 @@ class MyPixelShuffle(nn.Module):
 
 class MyPReLU(nn.Module):
     def __init__(self, num_parameters=1, init=0.25):
-        super(MyPReLU, self).__init__()
+        super().__init__()
         self.weight = Parameter(torch.empty(num_parameters).fill_(init))
 
     def forward(self, input):

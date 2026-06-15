@@ -15,7 +15,7 @@ torch.fx.wrap("warp")
 
 class GMFSS(nn.Module):
     def __init__(self, model_dir, model_type, scale, ensemble):
-        super(GMFSS, self).__init__()
+        super().__init__()
         if model_type == "base":
             from .FusionNet_b import GridNet
         else:

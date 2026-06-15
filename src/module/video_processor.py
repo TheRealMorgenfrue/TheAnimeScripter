@@ -11,17 +11,17 @@ from torch import Tensor
 from torch.profiler import ProfilerActivity, profile
 from tqdm import tqdm
 
-from src.module.config.tas_args import TASArgs
-from src.module.config.tas_config import TASConfig
-from src.module.initializeModels import initialize_models
-from src.module.utils.cuda_checker import CudaChecker
-from src.module.utils.get_video_metadata import get_video_metadata
-from src.module.utils.io_buffers import (
+from module.io.get_video_metadata import get_video_metadata
+from module.io.io_buffers import (
     ReadBuffer,
     WriteBuffer,
     create_write_buffer,
 )
-from src.module.utils.io_handler import PathConfiguration
+from module.io.io_handler import PathConfiguration
+from src.module.config.tas_args import TASArgs
+from src.module.config.tas_config import TASConfig
+from src.module.initializeModels import initialize_models
+from src.module.utils.cuda_checker import CudaChecker
 
 
 class VideoProcessor:

@@ -1,8 +1,10 @@
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .warplayer_v2 import warp
-import math
+
+from .util.warplayer_v2 import warp
 
 
 def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
@@ -79,8 +81,6 @@ class IFNet(nn.Module):
         device="cuda",
         width=1920,
         height=1080,
-        backWarp=None,
-        tenFlow=None,
     ):
         super(IFNet, self).__init__()
         self.block0 = IFBlock(7, c=192)

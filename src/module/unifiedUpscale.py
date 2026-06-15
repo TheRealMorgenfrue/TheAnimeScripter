@@ -2,13 +2,13 @@ import logging
 import os
 
 import torch
-
 from src.module.constants import ADOBE
 from src.module.utils.logAndPrint import logAndPrint
+
 from src.module.utils.modelOptimizer import ModelOptimizer
 
+from .utils.cuda_checker import CudaChecker
 from .utils.downloadModels import downloadModels, modelsMap, weightsDir
-from .utils.isCudaInit import CudaChecker
 
 if ADOBE:
     from src.module.utils.aeComms import progressState
@@ -120,10 +120,10 @@ class UniversalPytorch:
                 pass
 
         self.model = (
-            self.model.eval().cuda() if checker.cudaAvailable else self.model.eval()
+            self.model.eval().cuda() if checker.cuda_available else self.model.eval()
         )
 
-        if self.half and checker.cudaAvailable:
+        if self.half and checker.cuda_available:
             try:
                 self.model = self.model.half()
             except UnsupportedDtypeError as e:
@@ -911,10 +911,10 @@ class AnimeSR:
         self.model.load_state_dict(torch.load(modelPath))
 
         self.model = (
-            self.model.eval().cuda() if checker.cudaAvailable else self.model.eval()
+            self.model.eval().cuda() if checker.cuda_available else self.model.eval()
         )
 
-        if self.half and checker.cudaAvailable:
+        if self.half and checker.cuda_available:
             try:
                 self.model = self.model.half()
             except Exception as e:

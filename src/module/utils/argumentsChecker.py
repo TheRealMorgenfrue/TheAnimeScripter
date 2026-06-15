@@ -5,20 +5,14 @@ Handles parsing and validation of command line arguments for The Anime Scripter.
 Provides comprehensive argument definitions and validation logic.
 """
 
-import argparse
 import logging
 import os
-import shutil
 import sys
 
 import src.module.constants as cs
-from rich_argparse import RichHelpFormatter
-from src.module.utils.dependencyHandler import installDependencies
-from src.module.utils.getFFMPEG import remove_readonly
 from src.module.utils.logAndPrint import logAndPrint
 
-from src.module.utils.isCudaInit import CudaChecker, detectGPUArchitecture
-from src.version import __version__
+from src.module.utils.cuda_checker import CudaChecker, detectGPUArchitecture
 
 # class DidYouMeanArgumentParser(argparse.ArgumentParser):
 #     """
@@ -247,7 +241,7 @@ def argumentsChecker(args, outputPath, parser):
             raise Exception(
                 "Single image input is not supported. For image sequences, use a pattern like 'frames_%05d.png' or provide a folder containing PNG files."
             )
-    elif args.input.lower().endswith((".gif")):
+    elif args.input.lower().endswith(".gif"):
         if args.encode_method != "gif":
             logging.error(
                 "GIF input detected but encoding method is not set to GIF, defaulting to GIF encoding"
@@ -314,7 +308,7 @@ def _adjustMethodsBasedOnCuda(args):
 
     # Check if GPU architecture supports modern CUDA features
     needsFallback = False
-    if isCuda.cudaAvailable:
+    if isCuda.cuda_available:
         isModernGPU, gpuName, computeCap = detectGPUArchitecture()
         if not isModernGPU:
             logAndPrint(

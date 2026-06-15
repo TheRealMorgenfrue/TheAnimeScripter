@@ -3,6 +3,7 @@ import torch.nn.functional as F
 from torch import nn
 from torch.nn.init import trunc_normal_
 
+
 class CSELayer(nn.Module):
     def __init__(self, num_channels: int = 48, reduction_ratio: int = 2) -> None:
         super().__init__()

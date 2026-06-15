@@ -3,10 +3,8 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
 
 import tensorrt as trt
-
 from src.module.constants import ADOBE
 from src.module.utils.logAndPrint import coloredPrint, logAndPrint
 
@@ -125,7 +123,7 @@ def _attachProgressMonitor(config: trt.IBuilderConfig) -> None:
 def createNetworkAndConfig(
     builder: trt.Builder,
     maxWorkspaceSize: int,
-) -> Tuple[trt.INetworkDefinition, trt.IBuilderConfig]:
+) -> tuple[trt.INetworkDefinition, trt.IBuilderConfig]:
     """Create TensorRT network and builder configuration."""
     networkFlags = 0
     networkFlags |= 1 << int(trt.NetworkDefinitionCreationFlag.STRONGLY_TYPED)
@@ -163,10 +161,10 @@ def parseModel(parser: trt.OnnxParser, modelPath: str) -> bool:
 def setOptimizationProfile(
     builder: trt.Builder,
     config: trt.IBuilderConfig,
-    inputName: List[str],
-    inputsMin: Union[List[Tuple[int, ...]], Tuple[int, ...]],
-    inputsOpt: Union[List[Tuple[int, ...]], Tuple[int, ...]],
-    inputsMax: Union[List[Tuple[int, ...]], Tuple[int, ...]],
+    inputName: list[str],
+    inputsMin: list[tuple[int, ...]] | tuple[int, ...],
+    inputsOpt: list[tuple[int, ...]] | tuple[int, ...],
+    inputsMax: list[tuple[int, ...]] | tuple[int, ...],
     isMultiInput: bool,
     fp16: bool = False,
 ) -> bool:
@@ -229,16 +227,16 @@ def tensorRTEngineCreator(
     modelPath: str = "",
     enginePath: str = "model.engine",
     fp16: bool = False,
-    inputsMin: Union[List[Tuple[int, ...]], Tuple[int, ...]] = [],
-    inputsOpt: Union[List[Tuple[int, ...]], Tuple[int, ...]] = [],
-    inputsMax: Union[List[Tuple[int, ...]], Tuple[int, ...]] = [],
-    inputName: Optional[List[str]] = None,
+    inputsMin: list[tuple[int, ...]] | tuple[int, ...] = [],
+    inputsOpt: list[tuple[int, ...]] | tuple[int, ...] = [],
+    inputsMax: list[tuple[int, ...]] | tuple[int, ...] = [],
+    inputName: list[str] | None = None,
     maxWorkspaceSize: int = (1 << 30),
     optimizationLevel: int = 3,
     forceStatic: bool = False,
     isMultiInput: bool = False,
     isRife: bool = False,
-) -> Tuple[Optional[trt.ICudaEngine], Optional[trt.IExecutionContext]]:
+) -> tuple[trt.ICudaEngine | None, trt.IExecutionContext | None]:
     """
     Create a TensorRT engine from an ONNX model with enhanced validation and error handling.
 
@@ -347,7 +345,7 @@ def tensorRTEngineCreator(
 
 def tensorRTEngineLoader(
     enginePath: str,
-) -> Tuple[Optional[trt.ICudaEngine], Optional[trt.IExecutionContext]]:
+) -> tuple[trt.ICudaEngine | None, trt.IExecutionContext | None]:
     """
     Load a TensorRT engine from a file with enhanced error handling.
 
@@ -396,7 +394,7 @@ def tensorRTEngineLoader(
 def tensorRTEngineNameHandler(
     modelPath: str = "",
     fp16: bool = False,
-    optInputShape: List[int] = None,
+    optInputShape: list[int] = None,
     ensemble: bool = False,
     isRife: bool = False,
 ) -> str:

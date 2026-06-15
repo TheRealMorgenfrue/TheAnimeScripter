@@ -26,7 +26,7 @@ def backwarp(tenIn, tenflow):
 
 class MetricNet(nn.Module):
     def __init__(self):
-        super(MetricNet, self).__init__()
+        super().__init__()
         self.metric_in = nn.Conv2d(14, 64, 3, 1, 1)
         self.metric_net1 = nn.Sequential(
             MyPReLU(),

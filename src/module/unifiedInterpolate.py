@@ -6,15 +6,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from src.module.constants import ADOBE
-
-from .utils.downloadModels import downloadModels, modelsMap, weightsDir
-from .utils.isCudaInit import CudaChecker
-from .utils.logAndPrint import logAndPrint
-
-if ADOBE:
-    from src.module.utils.aeComms import progressState
-
+from .utils.cuda_checker import CudaChecker
 
 checker = CudaChecker()
 
@@ -26,86 +18,86 @@ def importRifeArch(interpolateMethod, version):
         case "v1":
             match interpolateMethod:
                 case "rife4.25-heavy":
-                    from .rifearches.IFNet_rife425heavy import IFNet
+                    from .models.vfi.rife.IFNet_rife425heavy import IFNet
                 case "rife4.25-lite":
-                    from .rifearches.IFNet_rife425lite import IFNet
+                    from .models.vfi.rife.IFNet_rife425lite import IFNet
                 case "rife" | "rife4.25":
-                    from .rifearches.IFNet_rife425 import IFNet
+                    from .models.vfi.rife.IFNet_rife425 import IFNet
                 case "rife4.22-lite":
-                    from .rifearches.IFNet_rife422lite import IFNet
+                    from .models.vfi.rife.IFNet_rife422lite import IFNet
                 case "rife4.22":
-                    from .rifearches.IFNet_rife422 import IFNet
+                    from .models.vfi.rife.IFNet_rife422 import IFNet
                 case "rife4.21":
-                    from .rifearches.IFNet_rife421 import IFNet
+                    from .models.vfi.rife.IFNet_rife421 import IFNet
                 case "rife4.20":
-                    from .rifearches.IFNet_rife420 import IFNet
+                    from .models.vfi.rife.IFNet_rife420 import IFNet
                 case "rife4.18":
-                    from .rifearches.IFNet_rife418 import IFNet
+                    from .models.vfi.rife.IFNet_rife418 import IFNet
                 case "rife4.17":
-                    from .rifearches.IFNet_rife417 import IFNet
+                    from .models.vfi.rife.IFNet_rife417 import IFNet
                 case "rife4.15-lite":
-                    from .rifearches.IFNet_rife415lite import IFNet
+                    from .models.vfi.rife.IFNet_rife415lite import IFNet
                 case "rife4.16-lite":
-                    from .rifearches.IFNet_rife416lite import IFNet
+                    from .models.vfi.rife.IFNet_rife416lite import IFNet
                 case "rife4.6":
-                    from .rifearches.IFNet_rife46 import IFNet
+                    from .models.vfi.rife.IFNet_rife46 import IFNet
                 case "rife_elexor":
-                    from .rifearches.IFNet_elexor_cuda import IFNet
+                    from .models.vfi.rife.IFNet_elexor_cuda import IFNet
             return IFNet
 
         case "v3":
             match interpolateMethod:
                 case "rife4.25-heavy-tensorrt":
-                    from src.rifearches.Rife425_heavy_v3 import IFNet
+                    from .models.vfi.rife.Rife425_heavy_v3 import IFNet
 
                     Head = True
 
                 case "rife4.25-lite-tensorrt":
-                    from src.rifearches.Rife425_lite_v3 import IFNet
+                    from .models.vfi.rife.Rife425_lite_v3 import IFNet
 
                     Head = True
                 case "rife4.25-tensorrt":
-                    from src.rifearches.Rife425_v3 import IFNet
+                    from .models.vfi.rife.Rife425_v3 import IFNet
 
                     Head = True
                 case "rife4.22-tensorrt":
-                    from src.rifearches.Rife422_v3 import IFNet
+                    from .models.vfi.rife.Rife422_v3 import IFNet
 
                     Head = True
                 case "rife4.22-lite-tensorrt":
-                    from src.rifearches.Rife422_lite_v3 import IFNet
+                    from .models.vfi.rife.Rife422_lite_v3 import IFNet
 
                     Head = True
                 case "rife4.21-tensorrt":
-                    from src.rifearches.Rife422_v3 import IFNet
+                    from .models.vfi.rife.Rife422_v3 import IFNet
 
                     Head = True
                 case "rife4.20-tensorrt":
-                    from src.rifearches.Rife420_v3 import IFNet
+                    from .models.vfi.rife.Rife420_v3 import IFNet
 
                     Head = True
                 case "rife4.18-tensorrt":
-                    from src.rifearches.Rife415_v3 import IFNet
+                    from .models.vfi.rife.Rife415_v3 import IFNet
 
                     Head = True
                 case "rife4.17-tensorrt":
-                    from src.rifearches.Rife415_v3 import IFNet
+                    from .models.vfi.rife.Rife415_v3 import IFNet
 
                     Head = True
                 case "rife4.15-tensorrt":
-                    from src.rifearches.Rife415_v3 import IFNet
+                    from .models.vfi.rife.Rife415_v3 import IFNet
 
                     Head = True
                 case "rife4.6-tensorrt":
-                    from src.rifearches.Rife46_v3 import IFNet
+                    from .models.vfi.rife.Rife46_v3 import IFNet
 
                     Head = False
                 case "rife4.6-directml" | "rife4.6-openvino":
-                    from src.rifearches.Rife_directml import IFNet_46 as IFNet
+                    from .models.vfi.rife.Rife_directml import IFNet_46 as IFNet
 
                     Head = False
                 case "rife4.22-directml" | "rife4.22-openvino":
-                    from src.rifearches.Rife_directml import IFNet_422 as IFNet
+                    from .models.vfi.rife.Rife_directml import IFNet_422 as IFNet
 
                     Head = True
                 case (
@@ -116,7 +108,7 @@ def importRifeArch(interpolateMethod, version):
                     | "rife4.17-openvino"
                     | "rife4.18-openvino"
                 ):
-                    from src.rifearches.Rife_directml import IFNet_415 as IFNet
+                    from .models.vfi.rife.Rife_directml import IFNet_415 as IFNet
 
                     Head = True
                 case (
@@ -125,27 +117,27 @@ def importRifeArch(interpolateMethod, version):
                     | "rife4.20-openvino"
                     | "rife4.21-openvino"
                 ):
-                    from src.rifearches.Rife_directml import IFNet_420 as IFNet
+                    from .models.vfi.rife.Rife_directml import IFNet_420 as IFNet
 
                     Head = True
                 case "rife4.22-lite-directml" | "rife4.22-lite-openvino":
-                    from src.rifearches.Rife_directml import IFNet_422_lite as IFNet
+                    from .models.vfi.rife.Rife_directml import IFNet_422_lite as IFNet
 
                     Head = True
                 case "rife4.25-directml" | "rife4.25-openvino":
-                    from src.rifearches.Rife_directml import IFNet_425 as IFNet
+                    from .models.vfi.rife.Rife_directml import IFNet_425 as IFNet
 
                     Head = True
                 case "rife4.25-lite-directml" | "rife4.25-lite-openvino":
-                    from src.rifearches.Rife_directml import IFNet_425_lite as IFNet
+                    from .models.vfi.rife.Rife_directml import IFNet_425_lite as IFNet
 
                     Head = True
                 case "rife4.25-heavy-directml" | "rife4.25-heavy-openvino":
-                    from src.rifearches.Rife_directml import IFNet_425_heavy as IFNet
+                    from .models.vfi.rife.Rife_directml import IFNet_425_heavy as IFNet
 
                     Head = True
                 case "rife_elexor-tensorrt":
-                    from src.rifearches.IFNet_elexor_tensorrt import IFNet
+                    from .models.vfi.rife.IFNet_elexor_tensorrt import IFNet
 
                     Head = True
             return IFNet, Head
@@ -261,14 +253,14 @@ class RifeCuda:
                     self.interpolateFactor,
                 )
 
-        if checker.cudaAvailable and self.half:
+        if checker.cuda_available and self.half:
             self.model.half()
         else:
             self.half = False
             self.model.float()
 
         self.model.load_state_dict(torch.load(modelPath, map_location=checker.device))
-        self.model.eval().cuda() if checker.cudaAvailable else self.model.eval()
+        self.model.eval().cuda() if checker.cuda_available else self.model.eval()
         self.model = self.model.to(checker.device)
         self.model = self.model.to(memory_format=torch.channels_last)
 
@@ -1508,14 +1500,14 @@ class DistilDRBACuda:
         self.I0 = None
 
         self.firstRun = True
-        self.stream = torch.cuda.Stream() if checker.cudaAvailable else None
-        self.normStream = torch.cuda.Stream() if checker.cudaAvailable else None
+        self.stream = torch.cuda.Stream() if checker.cuda_available else None
+        self.normStream = torch.cuda.Stream() if checker.cuda_available else None
 
         self.loadModel()
 
     def loadModel(self):
         """Load the DistilDRBA model weights."""
-        from .rifearches.IFNet_distildrba import IFNet
+        from .models.vfi.rife.IFNet_distildrba import IFNet
 
         self.filename = modelsMap(self.interpolateMethod)
         folderPath = os.path.join(weightsDir, self.interpolateMethod)
@@ -1746,7 +1738,7 @@ class DistilDRBATensorRT:
 
     def handleModel(self):
         """Initialize TensorRT engine for DistilDRBA."""
-        from .rifearches.IFNet_distildrba import IFNet
+        from .models.vfi.rife.IFNet_distildrba import IFNet
 
         baseMethod = self.interpolateMethod.replace("-tensorrt", "")
         self.filename = modelsMap(baseMethod)
@@ -1788,7 +1780,10 @@ class DistilDRBATensorRT:
 
     def createEngine(self, modelPath, enginePath):
         """Create TensorRT engine from ONNX export."""
-        from .rifearches.IFNet_distildrba_tensorrt import IFNetFullTRT, IFNetLiteTRT
+        from .models.vfi.rife.IFNet_distildrba_tensorrt import (
+            IFNetFullTRT,
+            IFNetLiteTRT,
+        )
 
         if self.lite:
             trtModel = IFNetLiteTRT(scale=self.scale)

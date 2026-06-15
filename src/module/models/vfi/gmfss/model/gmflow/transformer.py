@@ -38,7 +38,7 @@ def generate_shift_window_attn_mask(input_resolution, window_size_h, window_size
 
     mask_windows = mask_windows.view(-1, window_size_h * window_size_w)
     attn_mask = mask_windows.unsqueeze(1) - mask_windows.unsqueeze(2)
-    attn_mask = attn_mask.masked_fill(attn_mask != 0, float(-100.0)).masked_fill(attn_mask == 0, float(0.0))
+    attn_mask = attn_mask.masked_fill(attn_mask != 0, (-100.0)).masked_fill(attn_mask == 0, 0.0)
 
     return attn_mask
 
@@ -115,7 +115,7 @@ class TransformerLayer(nn.Module):
                  with_shift=False,
                  **kwargs,
                  ):
-        super(TransformerLayer, self).__init__()
+        super().__init__()
 
         self.dim = d_model
         self.nhead = nhead
@@ -196,7 +196,7 @@ class TransformerBlock(nn.Module):
                  with_shift=False,
                  **kwargs,
                  ):
-        super(TransformerBlock, self).__init__()
+        super().__init__()
 
         self.self_attn = TransformerLayer(d_model=d_model,
                                           nhead=nhead,
@@ -250,7 +250,7 @@ class FeatureTransformer(nn.Module):
                  ffn_dim_expansion=4,
                  **kwargs,
                  ):
-        super(FeatureTransformer, self).__init__()
+        super().__init__()
 
         self.attention_type = attention_type
 
@@ -331,7 +331,7 @@ class FeatureFlowAttention(nn.Module):
     def __init__(self, in_channels,
                  **kwargs,
                  ):
-        super(FeatureFlowAttention, self).__init__()
+        super().__init__()
 
         self.q_proj = nn.Linear(in_channels, in_channels)
         self.k_proj = nn.Linear(in_channels, in_channels)

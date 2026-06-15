@@ -45,7 +45,7 @@ def listPresets():
         print("No presets found")
         return
 
-    with open(presetsPath, "r") as file:
+    with open(presetsPath) as file:
         data = json.load(file)
         presets = data.get("Presets", {})
 

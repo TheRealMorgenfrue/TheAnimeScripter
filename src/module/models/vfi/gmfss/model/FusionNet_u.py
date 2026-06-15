@@ -68,7 +68,7 @@ def UpsampleBlock(in_channels, out_channels, stride=2):
 
 class PixelShuffleBlcok(nn.Module):
     def __init__(self, in_feat, num_feat, num_out_ch):
-        super(PixelShuffleBlcok, self).__init__()
+        super().__init__()
         self.conv_before_upsample = nn.Sequential(
             nn.Conv2d(in_feat, num_feat, 3, 1, 1), MyPReLU()
         )
@@ -93,7 +93,7 @@ class GridNet(nn.Module):
         in_channels3=384,
         out_channels=3,
     ):
-        super(GridNet, self).__init__()
+        super().__init__()
 
         self.residual_model_head0 = ResidualBlock(in_channels, 64)
         self.residual_model_head1 = ResidualBlock(in_channels1, 64)

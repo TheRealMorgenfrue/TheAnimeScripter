@@ -1,9 +1,10 @@
-import onnx
 import os
 import sys
-import torch
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+import onnx
+import torch
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -21,6 +22,7 @@ modelList = [r"F:\test\dasdas\AnimeSR_v2.onnx"]
 
 def convertToFloat16(model):
     import copy
+
     from onnx import TensorProto
 
     def convertDtype(tensor):
@@ -99,7 +101,7 @@ def pthToOnnx(
     opset=OPSET,
     slim=True,
 ):
-    from src.spandrel import ModelLoader, ImageModelDescriptor
+    from src.spandrel import ImageModelDescriptor, ModelLoader
 
     print(f"\n{'=' * 60}")
     print(f"Converting PyTorch model to ONNX: {pthPath}")

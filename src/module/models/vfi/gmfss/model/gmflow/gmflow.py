@@ -26,7 +26,7 @@ class GMFlow(nn.Module):
                  num_head=1,
                  **kwargs,
                  ):
-        super(GMFlow, self).__init__()
+        super().__init__()
 
         self.num_scales = num_scales
         self.feature_channels = feature_channels

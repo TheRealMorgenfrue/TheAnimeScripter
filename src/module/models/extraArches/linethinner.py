@@ -1,9 +1,9 @@
+import math
+from typing import Literal
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Literal
-import math
-
 
 VARIANTCONFIG = {
         'lite': {
@@ -283,7 +283,7 @@ class LineThinner(nn.Module):
         return result
 
 
-class LineThin():
+class LineThin:
     def __init__(
         self,
         variant: Literal['lite', 'medium', 'heavy'] = 'medium',
