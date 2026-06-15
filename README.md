@@ -14,29 +14,29 @@
 
 </div>
 
-## 📋 Overview
+## Overview
 
 TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit specialized for anime and general video content. It seamlessly integrates with Adobe After Effects while also offering standalone functionality, bringing professional-grade AI upscaling, interpolation, and restoration to creators.
 
 ## Table of Contents
 
 - [ Key Features](#-key-features)
-- [🖥️ User Interfaces](#️-user-interfaces)
-- [🛠️ Installation Guide](#️-installation-guide)
-- [📚 Command Reference](#-command-reference)
-- [📁 Supported Models](#-supported-models)
-- [📈 Performance Benchmarks](#-performance-benchmarks)
-- [👨‍ Contributors](#-contributors)
-- [⭐ Project Growth](#-project-growth)
-- [🎥 Demo & Examples](#-demo--examples)
+- [User Interfaces](#️-user-interfaces)
+- [Installation Guide](#️-installation-guide)
+- [Command Reference](#-command-reference)
+- [Supported Models](#-supported-models)
+- [Performance Benchmarks](#-performance-benchmarks)
+- [Contributors](#-contributors)
+- [Project Growth](#-project-growth)
+- [Demo & Examples](#-demo--examples)
 
-## 🚀 Key Features
+## Key Features
 
 <table>
 <tr>
 <td width="50%">
 
-### 🎞️ Video Enhancement
+### Video Enhancement
 
 - **Motion Interpolation:** Create buttery-smooth animation with advanced frame interpolation
 - **AI Upscaling:** Enhance resolution with AI-powered upscaling (2x)
@@ -45,7 +45,7 @@ TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit sp
 </td>
 <td width="50%">
 
-### 🎭 Advanced Editing
+### Advanced Editing
 
 - **Background-Foreground Segmentation:** Precise automatic rotobrushing
 - **Depth Map Generation:** 3D-ready depth maps for creative effects
@@ -55,18 +55,19 @@ TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit sp
 <tr>
 <td>
 
-### 🔧 Workflow Optimization
+### Workflow Optimization
 
 - **After Effects Integration:** Seamless plugin for AE workflow
+- **Cross-platform:** Runs on Windows, Linux and MacOS
 - **Model Chaining:** Combine multiple effects in a single processing pass
 - **In-Memory Processing:** Efficient frame handling without redundant disk operations
 
 </td>
 <td>
 
-### 🧠 AI Flexibility
+### Model Flexibility
 
-- **Multi-Backend Support:** CUDA, TensorRT, DirectML, and NCNN acceleration
+- **Multi-Backend Support:** CUDA, TensorRT, OpenVINO, ROCm, Metal, and NCNN acceleration
 - **Custom Model Support:** Import your own trained models
 - **Restoration Options:** Denoise, dejpeg, sharpen, and line enhancement
 
@@ -74,9 +75,7 @@ TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit sp
 </tr>
 </table>
 
-## 🖥️ User Interfaces
-
-<div class="interface-container">
+## User Interfaces
 
 ### <img src="https://img.icons8.com/color/24/000000/adobe-after-effects--v1.png" width="20"/> Adobe After Effects Integration
 
@@ -86,62 +85,38 @@ Adobe plugin provides seamless integration directly within your AE workflow, ena
 
 <img src="https://github.com/user-attachments/assets/b89e785b-34e4-4be4-911f-79433cd5c5c8" width="300" alt="Adobe GUI">
 
-### <img src="https://img.icons8.com/color/24/000000/windows-10.png" width="20"/> Windows Standalone
+### Standalone Application
 
 > _Under active development - coming soon_
 
-The native Windows application will provide a dedicated environment optimized for batch processing and advanced customization options.
+The native application will provide a dedicated environment optimized for batch processing and advanced customization options.
 
-</div>
+## Getting Started
 
-## 🛠️ Getting Started
+### System Requirements
 
-<div class="setup-container">
+The table below shows supported hardware combinations. For best performance, a GPU (or NPU/APU) is recommended.
 
-### <img src="https://img.icons8.com/color/24/000000/adobe-after-effects--v1.png" width="20"/> Adobe After Effects Plugin
+|                                   Hardware                                    | Operating System | Supported |
+| :---------------------------------------------------------------------------: | :--------------: | :-------: |
+|                   NVIDIA GPU <br> (GTX 10 series or later)                    |  Windows/Linux   |    ✅     |
+|                   AMD GPU <br> (9000 & select 7000 Series)                    |  Windows/Linux   |    ✅     |
+| AMD APU <br> (AI Max 300 Series, select AI 400 Series & select AI 300 Series) |  Windows/Linux   |    ✅     |
+|                                 Intel GPU/NPU                                 |  Windows/Linux   |    ✅     |
+|                                 Apple Silicon                                 |      MacOS       |    ✅     |
+|                       Intel CPU <br> (Haswell or later)                       |  Windows/Linux   |    ✅     |
+|                         AMD CPU <br> (Zen1 or later)                          |  Windows/Linux   |    ✅     |
 
-<div class="requirements-box">
-
-**System Requirements:**
-
-- After Effects 2022 or higher
-- Compatible GPU recommended:
-    - **Modern NVIDIA** (RTX 20/30/40, GTX 16 series): Full CUDA/TensorRT support
-    - **Older NVIDIA** (GTX 1000 series/Pascal): DirectML / NCNN backend (automatic)
-    - **AMD/Intel GPUs**: DirectML / NCNN backend supported
-
-</div>
-
-#### Installation Steps:
-
-1. Download the [**TAS-AdobeEdition**](https://github.com/NevermindNilas/TheAnimeScripter/releases/) from the releases page
-2. Extract the `.zip` file to a location of your choice
-3. Follow the [**installation tutorial**](https://nevermindnilas.github.io/zxp-installation/) to add TAS to After Effects
-
-<div class="help-box">
-
-> **Need help?** Watch the [video tutorial](https://youtu.be/JAdZ3z-os_A?si=fZQPmhMLtHfAktwn)
-
-</div>
-
-### <img src="https://img.icons8.com/fluency/24/000000/windows-client.png" width="20"/> Standalone Application
-
-<div class="dev-status">
+### Standalone Application
 
 > **Development Status:** Currently in active development. Join the [Discord](https://discord.gg/hwGHXga8ck) for development updates.
 
-</div>
-
-### <img src="https://img.icons8.com/color/24/000000/console.png" width="20"/> Command Line Interface
+### Command Line Interface
 
 Get the most powerful and flexible version of TAS with the command-line interface:
 
-<div class="download-options">
-
 - **[⬇️ Stable Release](https://github.com/NevermindNilas/TheAnimeScripter/releases)** — Recommended for production work
 - **[⬇️ Nightly Builds](https://github.com/NevermindNilas/TAS-Nightly/releases)** — Latest features (may contain bugs)
-
-</div>
 
 ### Source Code - Development Setup
 
@@ -172,15 +147,13 @@ Get the most powerful and flexible version of TAS with the command-line interfac
     It may take some time to install.  
     If a GUI displays, the installation was successful.
 
-</div>
-
-## 📚 Available Inputs
+## Available Inputs
 
 All available parameters for interacting with the CLI or directly with `main.py` can be found in the [Parameters](PARAMETERS.MD) guide.
 
-## 📁 Available Models
+## Available Models
 
-### 🆙 Upscaling Models
+### Upscaling Models
 
 | Model                        | CUDA | TensorRT | DirectML | NCNN |
 | ---------------------------- | :--: | :------: | :------: | :--: |
@@ -198,7 +171,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | Gauss ( DIS based )          |  ✅  |    ✅    |    ✅    |  ❌  |
 | Custom (Spandrel)            |  ✅  |    ❌    |    ❌    |  ❌  |
 
-### ⏱️ Interpolation Models (RIFE)
+### Interpolation Models (RIFE)
 
 | Version               | CUDA | TensorRT | DirectML | NCNN |
 | --------------------- | :--: | :------: | :------: | :--: |
@@ -216,7 +189,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | 4.25-heavy            |  ✅  |    ✅    |    ❌    |  ❌  |
 | Rife_Elexor (mod 4.7) |  ✅  |    ✅    |    ❌    |  ❌  |
 
-### 🔧 Restoration Models
+### Restoration Models
 
 | Model                 | CUDA | TensorRT | DirectML | NCNN |
 | --------------------- | :--: | :------: | :------: | :--: |
@@ -229,7 +202,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | GaterV3               |  ✅  |    ❌    |    ✅    |  ❌  |
 | DeH264 ( Real-Plksr ) |  ✅  |    ✅    |    ✅    |  ❌  |
 
-### 🌊 Depth Map Models
+### Depth Map Models
 
 | Model                                 | CUDA | TensorRT | DirectML | NCNN |
 | ------------------------------------- | :--: | :------: | :------: | :--: |
@@ -249,11 +222,9 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | OG Distill Base v2                    |  ✅  |    ✅    |    ✅    |  ❌  |
 | OG Distill Large v2                   |  ✅  |    ✅    |    ✅    |  ❌  |
 
-## 🙏 Project Contributors
+## Project Contributors
 
-<div class="contributors-container">
-
-### 🧠 Model & Algorithm Contributors
+### Model & Algorithm Contributors
 
 | Contributor                                       | Contribution                 | Repository                                                                             |
 | ------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------- |
@@ -272,7 +243,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 
 ---
 
-### 🛠️ Framework & Tool Contributors
+### Framework & Tool Contributors
 
 | Contributor                                     | Contribution                 | Repository                                                     |
 | ----------------------------------------------- | ---------------------------- | -------------------------------------------------------------- |
@@ -283,25 +254,20 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | [TNTWise](https://github.com/TNTwise)           | RIFE ONNX/NCNN optimizations | [GitHub](https://github.com/TNTwise)                           |
 | [Hyperbrew](https://github.com/hyperbrew)       | Adobe integration framework  | [bolt-cep](https://github.com/hyperbrew/bolt-cep)              |
 
-### 🌟 TAS Collaborators
+### TAS Collaborators
 
 | Contributor                                     | Contribution                                    |
 | ----------------------------------------------- | ----------------------------------------------- |
 | [Trentonom0r3](https://github.com/Trentonom0r3) | TAS Adobe Edition                               |
 | [Adegerard](https://github.com/adegerard)       | Project architecture & optimization suggestions |
 
-<div class="contact-info">
+> **Missing contributor?** Please contact me at [nilascontact@gmail.com](mailto:nilascontact@gmail.com) or open a Github Issue!
 
-> 📧 **Missing contributor?** Please contact me at [nilascontact@gmail.com](mailto:nilascontact@gmail.com) or open a Github Issue!
-
-</div>
-</div>
-
-## 🌟 Star History
+## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=NevermindNilas/TheAnimeScripter&type=Date)](https://star-history.com/#NevermindNilas/TheAnimeScripter&Date)
 
-## 🎥 Promo Video
+## Promo Video
 
 [![Promo Video](https://img.youtube.com/vi/V7ryKMezqeQ/0.jpg)](https://youtu.be/V7ryKMezqeQ)
 \*\*
