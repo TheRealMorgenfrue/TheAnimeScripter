@@ -9,9 +9,6 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-import src.module.constants as cs
-from src.module.utils.aeComms import progressState
-
 progressRefreshPerSec = 10  # Rich refresh frequency
 fpsCacheInterval = 0.25  # seconds to cache FPS column output
 
