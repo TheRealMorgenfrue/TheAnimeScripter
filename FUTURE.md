@@ -17,6 +17,10 @@ Main reference: https://guide.encode.moe/index.html
 
 ## Models
 
+### Repos
+
+- https://github.com/NevermindNilas/TAS-Models-Host/releases/tag/main
+
 ### Shot Boundary Detection (Scene Detection)
 
 Best
@@ -28,15 +32,37 @@ Fallback
 
 - https://github.com/Breakthrough/PySceneDetect
 
+### Frame Deduplication
+
+- https://github.com/routineLife1/MultiPassDedup
+
 ## Performance
 
-### Intel/AMD/NVIDIA
+General
 
 - https://onnxruntime.ai/docs/performance/
 - https://onnxruntime.ai/docs/execution-providers/
 - https://github.com/microsoft/onnxruntime
 - https://microsoft.github.io/Olive/
-- https://microsoft.github.io/Olive/privacy.html
+- https://onnxruntime.ai/docs/performance/device-tensor.html
+
+Help
+
+- https://onnxruntime.ai/docs/api/python/tutorial.html
+
+### Intel
+
+- https://onnxruntime.ai/docs/execution-providers/OpenVINO-ExecutionProvider.html#install
+
+### AMD
+
+- https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html
+- https://onnxruntime.ai/docs/execution-providers/MIGraphX-ExecutionProvider.html#migraphx-execution-provider
+- https://rocm.docs.amd.com/projects/AMDMIGraphX/en/latest/install/install-torch-migraphx.html
+
+### NVIDIA
+
+- https://github.com/nvidia/Model-Optimizer
 
 ### Apple Silicon
 
