@@ -97,15 +97,15 @@ The native application will provide a dedicated environment optimized for batch 
 
 The table below shows supported hardware combinations. For best performance, a GPU (or NPU/APU) is recommended.
 
-|                                   Hardware                                    | Operating System | Supported |
-| :---------------------------------------------------------------------------: | :--------------: | :-------: |
-|                   NVIDIA GPU <br> (GTX 10 series or later)                    |  Windows/Linux   |    ✅     |
-|                   AMD GPU <br> (9000 & select 7000 Series)                    |  Windows/Linux   |    ✅     |
-| AMD APU <br> (AI Max 300 Series, select AI 400 Series & select AI 300 Series) |  Windows/Linux   |    ✅     |
-|                                 Intel GPU/NPU                                 |  Windows/Linux   |    ✅     |
-|                                 Apple Silicon                                 |      MacOS       |    ✅     |
-|                       Intel CPU <br> (Haswell or later)                       |  Windows/Linux   |    ✅     |
-|                         AMD CPU <br> (Zen1 or later)                          |  Windows/Linux   |    ✅     |
+|                                   Hardware                                    |      Operating System      | Supported |
+| :---------------------------------------------------------------------------: | :------------------------: | :-------: |
+|                   NVIDIA GPU <br> (GTX 10 series or later)                    |       Windows/Linux        |    ✅     |
+|                   AMD GPU <br> (9000 & select 7000 Series)                    |       Windows/Linux        |    ✅     |
+| AMD APU <br> (AI Max 300 Series, select AI 400 Series & select AI 300 Series) |       Windows/Linux        |    ✅     |
+|                                 Intel GPU/NPU                                 |       Windows/Linux        |    ✅     |
+|                                 Apple Silicon                                 | MacOS <br> (12.3 or later) |    ✅     |
+|                       Intel CPU <br> (Haswell or later)                       |       Windows/Linux        |    ✅     |
+|                         AMD CPU <br> (Zen1 or later)                          |       Windows/Linux        |    ✅     |
 
 ### Standalone Application
 
