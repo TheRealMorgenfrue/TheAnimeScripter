@@ -10,31 +10,18 @@
     ]
     dependencies=[
         # Core dependencies
-        "applib",
-        "setuptools==80.10.2",
-        "wheel-stub==0.5.0",
-        "numpy==2.2.6",
+        "numpy>=2.2.6",
         # System and process management
         "psutil==7.2.2",
         # User interface and CLI
-        "inquirer==3.4.1",
-        "colored==2.3.1",
-        "rich==14.3.2",         # DEPRECATED
-        "rich-argparse==1.7.2", # DEPRECATED
+        "applib",
         "tqdm>=4.67.3",
         # Video processing
         "nelux>=0.12.6",
-        # CPU inference
         "opencv-python-headless==4.13.0.92",
-        "timm==1.0.24",
-        "onnx==1.20.0",
-        "vmaf-torch==1.1.0",
-        "scenedetect",
-        "onnxruntime==1.24.1; sys_platform == 'linux'",
-        "torchcodec==0.9.1; sys_platform == 'linux'",
-        "openvino==2025.4.1; sys_platform == 'windows'",
-        "onnxscript==0.6.2; sys_platform == 'windows'",
-        "einops==0.8.2; sys_platform == 'windows'",
+        # Inference
+        "onnxruntime==1.26.0",
+        "onnx==1.22.0",
     ]
     description="A high-performance tool for video upscaling, interpolation, depth estimation, and more."
     dynamic=["version"]
@@ -46,42 +33,54 @@
         "deduplication",
     ]
     license={file="LICENSE"}
-    name="TheAnimeScripter"
+    name="TheAnimeScripter-Redux"
     readme="README.md"
     requires-python="==3.13.*"
 
 
     [project.optional-dependencies]
-        # Compute platforms (Currently only NVIDIA)
+        # Compute platforms (NVIDIA, AMD, Intel, Apple)
         ada=[
             "torch==2.12.0",
             "torchvision>=0.24.1",
+            "onnxruntime-gpu==1.26.0",
             "tensorrt>=11.0.0.114",
-            "safetensors==0.7.0",
-            "triton-windows==3.6.0.post25; sys_platform == 'windows'",
+        ]
+        amd=[
+            "torch==2.12.0",
+            "torchvision>=0.24.1",
+            "torch_migraphx==1.1; sys_platform == 'linux'",
         ]
         ampere=[
             "torch==2.12.0",
             "torchvision>=0.24.1",
+            "onnxruntime-gpu==1.26.0",
             "tensorrt>=11.0.0.114",
-            "safetensors==0.7.0",
-            "triton-windows==3.6.0.post25; sys_platform == 'windows'",
         ]
+        apple=["torch==2.12.0", "torchvision>=0.24.1"]
         blackwell=[
             "torch==2.12.0",
             "torchvision>=0.24.1",
+            "onnxruntime-gpu==1.26.0",
             "tensorrt>=11.0.0.114",
-            "safetensors==0.7.0",
-            "triton-windows==3.6.0.post25; sys_platform == 'windows'",
         ]
         cpu=["torch==2.12.0", "torchvision>=0.24.1"]
-        pascal=["torch==2.12.0", "torchvision>=0.24.1"]
+        intel=[
+            "torch==2.12.0",
+            "torchvision>=0.24.1",
+            "openvino==2025.4.1",
+            "onnxruntime-openvino==1.24.1",
+        ]
+        pascal=[
+            "torch==2.12.0",
+            "torchvision>=0.24.1",
+            "onnxruntime-gpu==1.26.0",
+        ]
         turing=[
             "torch==2.12.0",
             "torchvision>=0.24.1",
+            "onnxruntime-gpu==1.26.0",
             "tensorrt>=11.0.0.114",
-            "safetensors==0.7.0",
-            "triton-windows==3.6.0.post25; sys_platform == 'windows'",
         ]
 
     [project.urls]
@@ -97,6 +96,9 @@
     conflicts=[
         [
             {extra="cpu"},
+            {extra="amd"},
+            {extra="intel"},
+            {extra="apple"},
             {extra="pascal"},
             {extra="turing"},
             {extra="ampere"},
@@ -109,6 +111,10 @@
         tensorrt={index="nvidia"}
         torch=[
             {index="cpu", extra="cpu"},
+            {index="amd", marker="sys_platform == 'linux'", extra="amd"},
+            {index="cpu", marker="sys_platform != 'linux'", extra="amd"},
+            {index="cpu", extra="intel"},
+            {index="cpu", extra="apple"},
             {index="cu126", extra="pascal"},
             {index="cu130", extra="turing"},
             {index="cu130", extra="ampere"},
@@ -131,6 +137,11 @@
         explicit=true
         name="cpu"
         url="https://download.pytorch.org/whl/cpu"
+
+    [[tool.uv.index]]
+        explicit=true
+        name="amd"
+        url="https://download.pytorch.org/whl/rocm7.2"
 
     [[tool.uv.index]]
         explicit=true
