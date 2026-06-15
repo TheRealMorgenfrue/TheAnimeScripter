@@ -35,50 +35,46 @@
     license={file="LICENSE"}
     name="TheAnimeScripter-Redux"
     readme="README.md"
-    requires-python="==3.13.*"
+    requires-python=">=3.13"
 
 
     [project.optional-dependencies]
         # Compute platforms (NVIDIA, AMD, Intel, Apple)
         ada=[
             "torch==2.12.0",
-            "torchvision>=0.24.1",
+            "torchvision",
             "onnxruntime-gpu==1.26.0",
             "tensorrt>=11.0.0.114",
         ]
         amd=[
             "torch==2.12.0",
-            "torchvision>=0.24.1",
-            "torch_migraphx==1.1; sys_platform == 'linux'",
+            "torchvision",
+            # "torch_migraphx==1.1; sys_platform == 'linux'", # numpy compatibility issue (only 1.20 supported)
         ]
         ampere=[
             "torch==2.12.0",
-            "torchvision>=0.24.1",
+            "torchvision",
             "onnxruntime-gpu==1.26.0",
             "tensorrt>=11.0.0.114",
         ]
-        apple=["torch==2.12.0", "torchvision>=0.24.1"]
+        apple=["torch==2.12.0", "torchvision"]
         blackwell=[
             "torch==2.12.0",
-            "torchvision>=0.24.1",
+            "torchvision",
             "onnxruntime-gpu==1.26.0",
             "tensorrt>=11.0.0.114",
         ]
-        cpu=["torch==2.12.0", "torchvision>=0.24.1"]
+        cpu=["torch==2.12.0", "torchvision"]
         intel=[
             "torch==2.12.0",
-            "torchvision>=0.24.1",
+            "torchvision",
             "openvino==2025.4.1",
             "onnxruntime-openvino==1.24.1",
         ]
-        pascal=[
-            "torch==2.12.0",
-            "torchvision>=0.24.1",
-            "onnxruntime-gpu==1.26.0",
-        ]
+        pascal=["torch==2.12.0", "torchvision", "onnxruntime-gpu==1.26.0"]
         turing=[
             "torch==2.12.0",
-            "torchvision>=0.24.1",
+            "torchvision",
             "onnxruntime-gpu==1.26.0",
             "tensorrt>=11.0.0.114",
         ]
@@ -111,8 +107,7 @@
         tensorrt={index="nvidia"}
         torch=[
             {index="cpu", extra="cpu"},
-            {index="amd", marker="sys_platform == 'linux'", extra="amd"},
-            {index="cpu", marker="sys_platform != 'linux'", extra="amd"},
+            {index="rocm", extra="amd"},
             {index="cpu", extra="intel"},
             {index="cpu", extra="apple"},
             {index="cu126", extra="pascal"},
@@ -122,14 +117,16 @@
             {index="cu130", extra="blackwell"},
         ]
         torchvision=[
-            {index="cu126", extra="cpu"},
+            {index="cpu", extra="cpu"},
+            {index="rocm", extra="amd"},
+            {index="cpu", extra="intel"},
+            {index="cpu", extra="apple"},
             {index="cu126", extra="pascal"},
             {index="cu130", extra="turing"},
             {index="cu130", extra="ampere"},
             {index="cu130", extra="ada"},
             {index="cu130", extra="blackwell"},
         ]
-
         # applib={git="https://github.com/TheRealMorgenfrue/AppLib"}
         applib={path="../AppLib", editable=true}
 
@@ -139,8 +136,8 @@
         url="https://download.pytorch.org/whl/cpu"
 
     [[tool.uv.index]]
-        explicit=true
-        name="amd"
+        # explicit=true
+        name="rocm"
         url="https://download.pytorch.org/whl/rocm7.2"
 
     [[tool.uv.index]]
