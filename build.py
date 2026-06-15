@@ -1,12 +1,12 @@
-import subprocess
-import shutil
+import argparse
 import os
 import platform
+import shutil
+import subprocess
 import tarfile
-from pathlib import Path
 import urllib.request
 import zipfile
-import argparse
+from pathlib import Path
 
 baseDir = Path(__file__).resolve().parent
 distPath = baseDir / "dist-portable"
@@ -63,7 +63,7 @@ def downloadPortablePythonWindows():
     pthFiles = list(portablePythonDir.glob("python*._pth"))
     if pthFiles:
         pthFile = pthFiles[0]
-        with open(pthFile, "r") as f:
+        with open(pthFile) as f:
             content = f.read()
 
         if "#import site" in content:
