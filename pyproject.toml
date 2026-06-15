@@ -22,6 +22,7 @@
         # Inference
         "onnxruntime==1.26.0",
         "onnx==1.22.0",
+        "olive-ai>=0.13.0",
     ]
     description="A high-performance tool for video upscaling, interpolation, depth estimation, and more."
     dynamic=["version"]
@@ -104,6 +105,7 @@
     ]
 
     [tool.uv.sources]
+        olive-ai={git="https://github.com/TheRealMorgenfrue/Olive"}
         tensorrt={index="nvidia"}
         torch=[
             {index="cpu", extra="cpu"},
