@@ -75,34 +75,10 @@ class VideoProcessor:
             self.input_metadata.set_value("height", new_height)
 
     def _execute_pipeline(self) -> None:
-        """
-        Select and execute the appropriate processing method based on user options.
-
-        Prioritizes specialized operations (autoclip, depth, segment, object detection)
-        over standard video processing.
-        """
+        """Select and execute the appropriate processing method based on user options."""
         # TODO: Add scene detection (called Autoclip in TAS)
 
-        if self.config.get_value("depth"):
-            self.logger.info("Depth Estimation")
-
-            from src.module.initializeModels import depth
-
-            depth(self)
-        elif self.config.get_value("segment"):
-            self.logger.info("Segmenting video")
-
-            from src.module.initializeModels import segment
-
-            segment(self)
-        elif self.config.get_value("obj_detect"):
-            self.logger.info("Object Detection")
-
-            from src.module.initializeModels import objectDetection
-
-            objectDetection(self)
-        else:
-            self.start()
+        self.start()
 
     def _process_frame(self, frame: Tensor, next_frame: Tensor | None) -> None:
         """
