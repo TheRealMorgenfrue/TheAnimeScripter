@@ -6,10 +6,11 @@ from typing import Self, override
 from applib import (
     AutoTextWrap,
     BaseTemplate,
+    CheckListOption,
     ColorPickerOption,
     ComboBoxOption,
-    CompatilityValidator,
     FileSelectorOption,
+    GenericConverter,
     GUIMessage,
     LoggingManager,
     NumberOption,
@@ -179,23 +180,6 @@ class TASTemplate(BaseTemplate):
                 ),
             },
             "Performance": {
-                "precision": ComboBoxOption(
-                    # TODO: Implement
-                    default="auto",
-                    values=["FP32", "FP16", "BF16", "MXFP8", "NVFP4"],
-                    ui_info=GUIMessage(
-                        "NOT IMPLEMENTED YET! Precision of inference",
-                        AutoTextWrap.text_format(
-                            """
-                            "Auto" automatically applies the lowest precision supported by your hardware.
-                            
-                            Lower precision is significantly faster than higher precision, while potentially reducing quality. 
-                            Please test the result of using lower precisions before processing large videos.
-                            """
-                        ),
-                    ),
-                    validators=validate_precision,
-                ),
                 "decode_method": ComboBoxOption(
                     default="cpu",
                     values=["cpu", "nvdec"],
@@ -204,27 +188,55 @@ class TASTemplate(BaseTemplate):
                         '"nvdec" requires an NVIDIA GPU with NVDEC support',
                     ),
                 ),
+                "auto_tune": Option(
+                    default=True,
+                    ui_info=GUIMessage(
+                        "Employ automatic model optimization tailored to your hardware",
+                        "It may take a while to process",
+                    ),
+                ),
+                "precision": ComboBoxOption(
+                    # TODO: Implement
+                    default="Auto",
+                    values=["Auto", "FP32", "TF32", "FP16", "BF16", "MXFP8", "NVFP4"],
+                    ui_info=GUIMessage(
+                        "NOT IMPLEMENTED YET! Precision of inference",
+                        AutoTextWrap.text_format(
+                            """
+                            "Auto" automatically applies the best precision supported by your hardware. 
+                            The best precision is chosen to balance performance and model quality.
+                            
+                            Lower precision is significantly faster than higher precision, while potentially reducing quality. 
+                            Please test the result of using lower precisions before processing large videos.
+                            """
+                        ),
+                    ),
+                    validators=validate_precision,
+                ),
+                "execution_providers": CheckListOption(
+                    default=["CPUExecutionProvider"],
+                    converter=GenericConverter(
+                        [
+                            "CPUExecutionProvider",
+                            "CUDAExecutionProvider",
+                            "TensorrtExecutionProvider",
+                            "OpenVINOExecutionProvider",
+                            "MIGraphXExecutionProvider",
+                        ],
+                        ["CPU", "CUDA", "TensorRT", "OpenVINO", "MIGraphX"],
+                    ),
+                    values=[
+                        "CPUExecutionProvider",
+                        "CUDAExecutionProvider",
+                        "TensorrtExecutionProvider",
+                        "OpenVINOExecutionProvider",
+                        "MIGraphXExecutionProvider",
+                    ],
+                ),
                 "static_trt": Option(
                     default=False,
                     ui_info=GUIMessage(
                         "Force static mode engine generation for TensorRT"
-                    ),
-                ),
-                "compile_mode": ComboBoxOption(
-                    default="default",
-                    values=["default", "max", "max-graphs"],
-                    ui_info=GUIMessage(
-                        "[EXPERIMENTAL] Enable PyTorch compilation for CUDA models to improve performance",
-                        AutoTextWrap.text_format(
-                            """
-                            Only compatible with CUDA workflows and may cause compatibility issues with some models.
-                            Increases startup time and memory usage.
-                            "default" uses standard CudaGraph workflow without compilation,
-                            "max" uses "max-autotune-no-cudagraphs" mode,
-                            "max-graphs" uses "max-autotune-no-cudagraphs" with "fullGraph=True".
-                            Both "max" options disable CudaGraphs, which may reduce performance at lower resolutions.
-                            """
-                        ),
                     ),
                 ),
                 "profile": Option(
