@@ -41,6 +41,18 @@ class TASArgs:
     ## Input metadata template
     input_metadata_template_name = "input_metadata_template"
 
+    ## ONNX Execution Providers
+    cuda_ep_template_name = "cuda_ep_template"
+    trt_ep_template_name = "trt_ep_template"
+    migraphx_ep_template_name = "migraphx_ep_template"
+    openvino_ep_template_name = "openvino_ep_template"
+
+    ## ONNX IO bindings template
+    io_binding_template_name = "onnx_io_binding_template"
+
+    ## Olive template
+    olive_template_name = "olive_template"
+
     # Configs
     config_dir = Path(app_dir, "configs")
 
@@ -48,6 +60,11 @@ class TASArgs:
     main_config_name = "TAS config"
     main_config_file = f"{main_config_name.replace(' ', '_').lower()}_config.toml"
     main_config_path = Path(config_dir, main_config_file)
+
+    ## Olive Config
+    olive_config_name = "Olive config"
+    olive_config_file = f"{olive_config_name.replace(' ', '_').lower()}_config.toml"
+    olive_config_path = Path(config_dir, olive_config_file)
 
     # ┌────────────────────────────┐
     # │ Override AppLib attributes │
