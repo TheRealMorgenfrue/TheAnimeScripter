@@ -174,20 +174,27 @@ class ReadBuffer:
         self,
         frame: Tensor,
         norm_stream: torch.cuda.Stream | None = None,
+        to_nhwc: bool = True,
     ) -> Tensor:
-        """Converts a single frame with optimized memory handling.
+        """Converts a frame tensor from HWC to NCHW memory layout.
+
+        While all PyTorch operations expect tensors to be in NCHW layout, NVIDIA tensor cores operate more efficiently with NHWC layout.
+        Thus, depending on the workload, NHWC may be faster than NHWC.
+        However, if the selected layout is not supported by a given tensor operation, necessary layout transformations will be applied to the tensor automatically.
+
+        A brief guide regarding memory layouts is available [here](https://uxlfoundation.github.io/oneDNN/dev_guide_understanding_memory_formats.html).
 
         Parameters
         ----------
         frame : Tensor
-            A frame in HWC format.
+            A frame in NHWC format.
         norm_stream : torch.cuda.Stream | None, optional
             The CUDA stream for normalization, by default None.
 
         Returns
         -------
         Tensor
-            The frame converted to BCHW format.
+            The frame converted to NCHW layout.
         """
         with torch.cuda.stream(norm_stream):
             try:
@@ -195,14 +202,23 @@ class ReadBuffer:
             except Exception:
                 pass
 
-            frame = frame.to(
-                device=self.device_type,
-                non_blocking=norm_stream is not None,
-                dtype=torch.float16 if self.precision else torch.float32,
-            )
+            if to_nhwc:
+                # TODO: Test if this works
+                frame = frame.to(
+                    device=self.device_type,
+                    non_blocking=norm_stream is not None,
+                    dtype=torch.float16 if self.precision else torch.float32,
+                    memory_format=torch.channels_last,  # NHWC, more efficient on Tensor Cores https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html#prefer_nhwc
+                )
+            else:
+                frame = frame.to(
+                    device=self.device_type,
+                    non_blocking=norm_stream is not None,
+                    dtype=torch.float16 if self.precision else torch.float32,
+                )
 
-            norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
-            frame = frame.permute(2, 0, 1).mul(norm).clamp(0, 1).unsqueeze(0)
+                norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
+                frame = frame.permute(2, 0, 1).mul(norm).clamp(0, 1).unsqueeze(0)
 
         if norm_stream is not None:
             norm_stream.synchronize()
