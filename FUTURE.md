@@ -32,6 +32,10 @@ Fallback
 
 - https://github.com/Breakthrough/PySceneDetect
 
+### Debanding
+
+- https://github.com/RaymondLZhou/deepDeband
+
 ### Frame Deduplication
 
 - https://github.com/routineLife1/MultiPassDedup
@@ -50,6 +54,12 @@ Help
 
 - https://onnxruntime.ai/docs/api/python/tutorial.html
 
+### Hardware-specific auto-tune
+
+An option to run a test render of some input to automatically determine the optimal parameteres for the user's hardware configuration.
+
+- https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html#convolution-input-padding
+
 ### Intel
 
 - https://onnxruntime.ai/docs/execution-providers/OpenVINO-ExecutionProvider.html#install
@@ -63,6 +73,13 @@ Help
 ### NVIDIA
 
 - https://github.com/nvidia/Model-Optimizer
+
+#### CUDA Graphs
+
+Models with control-flow ops (If, Loop, Scan etc.) are NOT supported.
+
+- https://docs.pytorch.org/docs/main/notes/cuda.html#cuda-graphs
+- https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html#using-cuda-graphs-preview
 
 ### Apple Silicon
 
