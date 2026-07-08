@@ -28,7 +28,7 @@ def get_video_metadata(input_path: str) -> InputMetadataConfig:
     """
     config = TASConfig()
     cmd = [
-        config.get_value("ffprobe"),
+        config["ffprobe"],
         "-v",
         "quiet",
         "-print_format",
@@ -72,7 +72,7 @@ def get_video_metadata(input_path: str) -> InputMetadataConfig:
     fpsParts = video_stream["r_frame_rate"].split("/")
     fps = float(fpsParts[0]) / float(fpsParts[1])
     total_frames = int(video_stream.get("nb_read_packets", 0))
-    out_point = config.get_value("outpoint")
+    out_point = config["outpoint"]
 
     metadata = {
         "Width": width,
@@ -87,7 +87,7 @@ def get_video_metadata(input_path: str) -> InputMetadataConfig:
         "ColorRange": video_stream.get("color_range", "unknown"),
         "Duration": float(probe_data["format"]["duration"]),
         "TotalFrames": total_frames,
-        "TotalFramesToProcess": int((out_point - config.get_value("inpoint")) * fps)
+        "TotalFramesToProcess": int((out_point - config["inpoint"]) * fps)
         if out_point
         else total_frames,
     }

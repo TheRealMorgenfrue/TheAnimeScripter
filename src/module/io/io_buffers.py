@@ -52,11 +52,11 @@ class ReadBuffer:
         self.input_path = input_path
         self.width = width
         self.height = height
-        self.decode_method: str = self._config.get_value("decode_method")
-        self.precision: str = self._config.get_value("precision")
-        self.bit_depth: str = self._config.get_value("bit_depth")
-        self.inpoint: float = self._config.get_value("inpoint")
-        self.outpoint: float = self._config.get_value("outpoint")
+        self.decode_method: str = self._config["decode_method"]
+        self.precision: str = self._config["precision"]
+        self.bit_depth: str = self._config["bit_depth"]
+        self.inpoint: float = self._config["inpoint"]
+        self.outpoint: float = self._config["outpoint"]
 
         self.is_finished = False
         self.decode_buffer: Queue[Tensor | None] = Queue(maxsize=64)
@@ -337,10 +337,10 @@ class WriteBufferFFmpeg(WriteBuffer):
         self.encode_method = encode_method
         self.grayscale = grayscale
         self.transparent = transparent
-        self.inpoint: float = self._config.get_value("inpoint")
-        self.outpoint: float = self._config.get_value("outpoint")
-        self.custom_encoder: str = self._config.get_value("custom_encoder")
-        self.bit_depth: str = self._config.get_value("bit_depth")
+        self.inpoint: float = self._config["inpoint"]
+        self.outpoint: float = self._config["outpoint"]
+        self.custom_encoder: str = self._config["custom_encoder"]
+        self.bit_depth: str = self._config["bit_depth"]
 
     def _encode_settings(self) -> list[str]:
         """
@@ -364,7 +364,7 @@ class WriteBufferFFmpeg(WriteBuffer):
             self.encode_method, self.bit_depth, self.grayscale, self.transparent
         )
 
-        if self._config.get_value("benchmark"):
+        if self._config["benchmark"]:
             return self._build_benchmark_command(input_pix_fmt)
         else:
             return self._build_encoding_command(input_pix_fmt, output_pix_fmt)
@@ -372,7 +372,7 @@ class WriteBufferFFmpeg(WriteBuffer):
     def _build_benchmark_command(self, input_pix_fmt: str) -> list[str]:
         """Build FFmpeg command for benchmarking."""
         return [
-            self._config.get_value("ffmpeg"),
+            self._config["ffmpeg"],
             "-y",
             "-hide_banner",
             "-v",
@@ -399,10 +399,10 @@ class WriteBufferFFmpeg(WriteBuffer):
     ) -> list[str]:
         """Build FFmpeg command for encoding."""
         use_hardware_accel = "nvenc" in self.encode_method and not self.custom_encoder
-        use_audio_subs = self._config.get_value("audio_subs")
+        use_audio_subs = self._config["audio_subs"]
 
         command = [
-            self._config.get_value("ffmpeg"),
+            self._config["ffmpeg"],
             "-y",
             "-hide_banner",
             "-loglevel",
@@ -431,7 +431,7 @@ class WriteBufferFFmpeg(WriteBuffer):
             ]
         )
 
-        if self.outpoint != 0 and not self._config.get_value("slowmo"):
+        if self.outpoint != 0 and not self._config["slowmo"]:
             command.extend(
                 [
                     "-itsoffset",
@@ -727,8 +727,8 @@ class WriteBufferNeLux(WriteBuffer):
         self.width = width
         self.height = height
         self.fps = fps
-        self.inpoint: float = self._config.get_value("inpoint")
-        self.outpoint: float = self._config.get_value("outpoint")
+        self.inpoint: float = self._config["inpoint"]
+        self.outpoint: float = self._config["outpoint"]
 
         codec_map = {
             "nvenc_h264_nelux": "h264_nvenc",
