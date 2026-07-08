@@ -172,7 +172,6 @@
         fixable=["ALL"]
         ignore=[
             "E501", # Avoid enforcing line-length violations
-            "E402", # Module level import not at top of file
         ]
         select=[
             'F', # Pyflakes
