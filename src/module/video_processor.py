@@ -14,7 +14,6 @@ from tqdm import tqdm
 from module.io.get_video_metadata import get_video_metadata
 from module.io.io_buffers import (
     ReadBuffer,
-    WriteBuffer,
     create_write_buffer,
 )
 from module.io.io_handler import PathConfiguration
@@ -33,6 +32,7 @@ class VideoProcessor:
     """
 
     def __init__(self, path_config: PathConfiguration):
+        self.start_time: float = time()
         self.logger = LoggingManager()
         self.config = TASConfig()
         self.error_buffer = []  # Stores errors from processing threads
@@ -40,23 +40,46 @@ class VideoProcessor:
         self.path = path_config
         self.input_metadata = get_video_metadata(self.path.input_path)
 
+        width = self.input_metadata["width"]
+        height = self.input_metadata["height"]
+
         # Frame processing
         self.dedup_count = 0
         self.frame_counter = 0
-        self.timesteps: list[float] | None = None
+        self.timesteps: list[float]
         self.vfi_factor_numerator = 1
         self.vfi_factor_denominator = 1
-        self.vfi_buffer: Queue | None = None
-        self.read_buffer: ReadBuffer | None = None
-        self.write_buffer: WriteBuffer | None = None
+        self.vfi_buffer: Queue
+        self.read_buffer = ReadBuffer(
+            input_path=self.path.input_path,
+            width=width,
+            height=height,
+        )
+        self.write_buffer = create_write_buffer(
+            encode_method=self.config["encode_method"],
+            input=self.path.input_path,
+            output=self.path.output_path,
+            width=width,
+            height=height,
+            fps=self.input_metadata["fps"],
+            grayscale=False,
+            transparent=False,
+        )
 
         # Config args
-        self.dedup: bool = self.config.get_value("dedup")
-        self.vfi: bool = self.config.get_value("vfi")
-        self.vfi_factor: float = self.config.get_value("vfi_factor")
-        self.vfi_model: str = self.config.get_value("vfi_model")
-        self.vfi_first: bool = self.config.get_value("vfi_first")
-        self.sr: bool = self.config.get_value("sr")
+        self.dedup: bool = self.config["dedup"]
+        self.vfi: bool = self.config["vfi"]
+        self.vfi_factor: float = self.config["vfi_factor"]
+        self.vfi_model: str = self.config["vfi_model"]
+        self.vfi_first: bool = self.config["vfi_first"]
+        self.sr: bool = self.config["sr"]
+
+        (
+            self.upscale_process,
+            self.interpolate_process,
+            self.restore_process,
+            self.dedup_process,
+        ) = initialize_models(width=width, height=height)
 
         self._configure_processing_options()
         self._execute_pipeline()
@@ -64,15 +87,15 @@ class VideoProcessor:
     def _configure_processing_options(self) -> None:
         """Configure processing options based on the selected operations."""
         if self.vfi:
-            new_fps = self.input_metadata.get_value("fps") * self.vfi_factor
-            self.input_metadata.set_value("fps", new_fps)
+            new_fps = self.input_metadata["fps"] * self.vfi_factor
+            self.input_metadata["fps"] = new_fps
 
         if self.sr:
-            sr_factor = self.config.get_value("sr_factor")
-            new_width = self.input_metadata.get_value("width") * sr_factor
-            new_height = self.input_metadata.get_value("height") * sr_factor
-            self.input_metadata.set_value("width", new_width)
-            self.input_metadata.set_value("height", new_height)
+            sr_factor = self.config["sr_factor"]
+            new_width = self.input_metadata["width"] * sr_factor
+            new_height = self.input_metadata["height"] * sr_factor
+            self.input_metadata["width"] = new_width
+            self.input_metadata["height"] = new_height
 
     def _execute_pipeline(self) -> None:
         """Select and execute the appropriate processing method based on user options."""
@@ -90,6 +113,7 @@ class VideoProcessor:
             return
 
         if self.vfi:
+            self.timesteps = []
             if isinstance(self.vfi, float):
                 current_index = self.frame_counter
                 next_index = current_index + 1
@@ -103,7 +127,6 @@ class VideoProcessor:
 
                 frames_to_insert = output_end - output_start - 1
 
-                self.timesteps = []
                 for i in range(1, frames_to_insert + 1):
                     outputIDX = output_start + i
                     t = (
@@ -116,7 +139,6 @@ class VideoProcessor:
                 self.frame_counter += 1
             else:
                 frames_to_insert = int(self.vfi_factor) - 1
-                self.timesteps = None
 
         if self.vfi_first:
             self._vfi_first(frame, next_frame, frames_to_insert)
@@ -144,6 +166,7 @@ class VideoProcessor:
         if self.sr:
             if self.vfi:
                 while not self.vfi_buffer.empty():
+                    # SAFETY: vfi_buffer is never None if vfi_first is True
                     self.write_buffer.write(
                         self.upscale_process(self.vfi_buffer.get(), next_frame)
                     )
@@ -186,10 +209,8 @@ class VideoProcessor:
         tracks processing statistics.
         """
         increment = 1
-        total_frames_to_process = self.input_metadata.get_value(
-            "total_frames_to_process"
-        )
-        should_get_next_frame = self.config.get_value("sr_model") == "animesr" or (
+        total_frames_to_process = self.input_metadata["total_frames_to_process"]
+        should_get_next_frame = self.config["sr_model"] == "animesr" or (
             self.vfi and self.vfi_model.startswith(("distildrba", "atr"))
         )
 
@@ -240,36 +261,8 @@ class VideoProcessor:
         Sets up input/output buffers, initializes AI models, and coordinates
         the multi-threaded processing workflow.
         """
-        (
-            self.upscale_process,
-            self.interpolate_process,
-            self.restore_process,
-            self.dedup_process,
-        ) = initialize_models(self)
 
-        start_time: float = time()
-
-        width = self.input_metadata.get_value("width")
-        height = self.input_metadata.get_value("height")
-
-        self.read_buffer = ReadBuffer(
-            input_path=self.path.input_path,
-            width=width,
-            height=height,
-        )
-
-        self.write_buffer = create_write_buffer(
-            encode_method=self.config.get_value("encode_method"),
-            input=self.path.input_path,
-            output=self.path.output_path,
-            width=width,
-            height=height,
-            fps=self.input_metadata.get_value("fps"),
-            grayscale=False,
-            transparent=False,
-        )
-
-        if self.config.get_value("profile"):
+        if self.config["profile"]:
             self._run_with_profiler()
         else:
             with ThreadPoolExecutor(max_workers=3) as executor:
@@ -277,10 +270,8 @@ class VideoProcessor:
                 executor.submit(self.write_buffer)
                 executor.submit(self._process)
 
-        total_frames_to_process = self.input_metadata.get_value(
-            "total_frames_to_process"
-        )
-        elapsed_time: float = time() - start_time
+        total_frames_to_process = self.input_metadata["total_frames_to_process"]
+        elapsed_time: float = time() - self.start_time
         total_fps: float = (
             total_frames_to_process
             / elapsed_time
