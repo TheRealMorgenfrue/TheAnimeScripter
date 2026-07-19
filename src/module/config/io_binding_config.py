@@ -1,10 +1,10 @@
 from applib import ConfigBase, CoreValidationModelGenerator
 
-from module.config.templates.onnx.io_binding_template import IOBindingTemplate
+from src.module.config.templates.onnx.io_binding_template import IOBindingTemplate
 
 
 class IOBindingConfig(ConfigBase):
-    def __init__(self, config_name: str) -> None:
+    def __init__(self, config_name: str, data: dict) -> None:
         """Creates an instance of a ONNX IO binding
 
         NOTE: This config does not follow the singleton pattern!
@@ -19,6 +19,6 @@ class IOBindingConfig(ConfigBase):
             name=config_name,
             template=template,
             validation_model=validation_model,
-            input_data=None,
+            input_data=data,
             save_path=None,
         )
