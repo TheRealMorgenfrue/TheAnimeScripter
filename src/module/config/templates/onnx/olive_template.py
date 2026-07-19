@@ -131,17 +131,19 @@ class OliveTemplate(BaseTemplate):
                 # }
             },
             "passes": {
-                "onnx_peephole_optimizer": {
-                    "type": Option(
-                        default="OnnxPeepholeOptimizer",
-                        flags=[Flags.HIDE_IN_CLI, Flags.HIDE_IN_GUI],
-                    ),
-                    "peephole_enabled": Option(
+                "enabled_passes": {
+                    "peephole": Option(
                         default=True,
                         ui_info=GUIMessage(
                             "Optimize ONNX model by fusing nodes",
                             "Runs a combination of onnxscript optimizer, onnxoptimizer, reshape fusion, and cast chain elimination",
                         ),
+                    ),
+                },
+                "onnx_peephole_optimizer": {
+                    "type": Option(
+                        default="OnnxPeepholeOptimizer",
+                        flags=[Flags.HIDE_IN_CLI, Flags.HIDE_IN_GUI],
                     ),
                     "onnxscript_optimize": Option(
                         default=True,
