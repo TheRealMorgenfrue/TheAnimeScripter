@@ -25,6 +25,13 @@ class TASArgs:
     log_filename = datetime.now().strftime("%Y-%m-%d")
     log_disable_header = True
 
+    # Asset directories
+    assets_dir = Path(app_dir, "src", "assets")
+    logo_dir = Path(assets_dir, "logos")
+
+    # Asset paths
+    tas_main_logo = f"{logo_dir.joinpath('icon.png')}"
+
     # Templates
     config_units = {
         "second": "seconds",
@@ -74,12 +81,18 @@ class TASArgs:
     _core_app_version = VERSION
     _core_link_github = github
     _core_is_release = is_release
+
     # Logging
     _core_log_dir = log_dir
     _core_log_format = log_format
     _core_log_use_color = log_use_color
     _core_log_filename = log_filename
     _core_log_disable_header = False
+
+    # Asset directories
+    _core_assets_dir = assets_dir
+    _core_logo_dir = logo_dir
+    _core_main_logo_path = tas_main_logo
 
     # Templates
     _core_main_template_name = main_template_name
