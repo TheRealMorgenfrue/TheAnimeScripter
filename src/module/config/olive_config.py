@@ -36,8 +36,9 @@ class OliveConfig(ConfigBase):
         """Returns all settings of `self` compatible with Olive workflows."""
         output = MappingBase(deepcopy(self.get_raw()))
 
-        if not self["peephole_enabled"]:
+        if not self["peephole"]:
             output.remove_value("onnx_peephole_optimizer")
-        output.remove_value("peephole_enabled")
+
+        output.remove_value("enabled_passes")
 
         return output.get_raw()
