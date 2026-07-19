@@ -138,7 +138,9 @@ class VideoProcessor:
 
                 self.frame_counter += 1
             else:
-                frames_to_insert = int(self.vfi_factor) - 1
+                frames_to_insert = (
+                    int(self.vfi_factor) - 1
+                )  # FIXME: Ensure VFI_factor >= 1
 
         if self.vfi_first:
             self._vfi_first(frame, next_frame, frames_to_insert)
