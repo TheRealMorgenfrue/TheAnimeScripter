@@ -216,7 +216,7 @@ class OliveTemplate(BaseTemplate):
                     default=f"{Path(TASArgs.app_dir, 'olive_model_optim')}"
                 ),
                 "log_severity_level": ComboBoxOption(
-                    default="INFO" if TASArgs.is_release else "DEBUG",
+                    default=2 if TASArgs.is_release else 0,
                     ui_info=GUIMessage("The log level of Olive"),
                     values={
                         "DEBUG": 0,
@@ -227,7 +227,7 @@ class OliveTemplate(BaseTemplate):
                     },
                 ),
                 "ort_log_severity_level": ComboBoxOption(
-                    default="WARNING" if TASArgs.is_release else "DEBUG",
+                    default=2 if TASArgs.is_release else 0,
                     ui_info=GUIMessage("The log level of ONNX Runtime C++ logs"),
                     values={
                         "DEBUG": 0,
@@ -238,7 +238,7 @@ class OliveTemplate(BaseTemplate):
                     },
                 ),
                 "ort_py_log_severity_level": ComboBoxOption(
-                    default="WARNING" if TASArgs.is_release else "DEBUG",
+                    default=2 if TASArgs.is_release else 0,
                     ui_info=GUIMessage("The log level of ONNX Runtime Python logs"),
                     values={
                         "DEBUG": 0,
