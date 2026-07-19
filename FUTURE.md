@@ -6,6 +6,8 @@ Things to integrate into this TAS fork
 
 The GUI should use node-based configuration similar to [chaiNNer](https://github.com/chaiNNer-org/chaiNNer) to configure model parameters, encoding settings etc.
 
+Or maybe see if integrating the [frontend](https://github.com/Comfy-Org/ComfyUI_frontend) of ComfyUI is better.
+
 ## Encoding toolbox
 
 Main reference: https://guide.encode.moe/index.html
@@ -20,6 +22,10 @@ Main reference: https://guide.encode.moe/index.html
 ### Repos
 
 - https://github.com/NevermindNilas/TAS-Models-Host/releases/tag/main
+
+- Integrate our model library with OpenModelDB. Users could download a model with a single click if it's available; even though some models are hosted on Google Drive or Mega, this could be a great feature for helping people discover models.
+    - Maybe try this: https://pypi.org/project/openmodeldb/
+    - [OpenModelDB](https://openmodeldb.info/)
 
 ### Shot Boundary Detection (Scene Detection)
 
