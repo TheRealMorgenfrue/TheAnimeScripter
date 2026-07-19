@@ -26,6 +26,7 @@ from applib import (
     validate_path,
     validate_theme,
 )
+from onnx import TensorProto
 
 from src.module.config.runners.actions.nelux_actions import set_nelux_log_level
 from src.module.config.runners.validators.validate_nelux import validate_nelux_loglevel
@@ -197,16 +198,16 @@ class TASTemplate(BaseTemplate):
                     ),
                 ),
                 "precision": ComboBoxOption(
-                    # TODO: Implement
-                    default="Auto",
-                    values=["Auto", "FP32", "TF32", "FP16", "BF16", "MXFP8", "NVFP4"],
+                    default="BF16",
+                    values={
+                        "FP32": TensorProto.FLOAT,
+                        "FP16": TensorProto.FLOAT16,
+                        "BF16": TensorProto.BFLOAT16,
+                    },
                     ui_info=GUIMessage(
-                        "NOT IMPLEMENTED YET! Precision of inference",
+                        "Precision of inference",
                         AutoTextWrap.text_format(
                             """
-                            "Auto" automatically applies the best precision supported by your hardware. 
-                            The best precision is chosen to balance performance and model quality.
-                            
                             Lower precision is significantly faster than higher precision, while potentially reducing quality. 
                             Please test the result of using lower precisions before processing large videos.
                             """
@@ -214,6 +215,7 @@ class TASTemplate(BaseTemplate):
                     ),
                     validators=validate_precision,
                 ),
+                # TODO: Make option to use all available GPUs (i.e. all available execution providers)
                 "execution_providers": CheckListOption(
                     default=["CPUExecutionProvider"],
                     converter=GenericConverter(
