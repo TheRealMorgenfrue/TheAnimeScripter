@@ -151,7 +151,7 @@ class IFNet(nn.Module):
                 if self.ensemble:
                     f1, m1 = block(
                         torch.cat(
-                            (warpedImg1[:, :3], warpedImg0[:, :3], 1 - timeStep, -mask),
+                            (warpedImg1[:, :3], warpedImg0[:, :3], 1 - timeStep, -mask),  # type: ignore
                             1,
                         ),
                         torch.cat((flow[:, 2:4], flow[:, :2]), 1),
@@ -166,7 +166,7 @@ class IFNet(nn.Module):
             warpedImg0 = warp(img0, flow[:, :2], self.tenFlow, self.backWarp)
             warpedImg1 = warp(img1, flow[:, 2:4], self.tenFlow, self.backWarp)
 
-        temp = torch.sigmoid(mask)
+        temp = torch.sigmoid(mask)  # type: ignore
         return (warpedImg0 * temp + warpedImg1 * (1 - temp))[
             :, :, : self.height, : self.width
         ]

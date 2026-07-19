@@ -180,7 +180,7 @@ class IFNet(nn.Module):
                 large_flow = flow
                 flow = None
 
-        mask = torch.sigmoid(mask)
+        mask = torch.sigmoid(mask)  # type: ignore
         return (warped_img0 * mask + warped_img1 * (1 - mask))[
             :, :, : self.height, : self.width
         ], f1
