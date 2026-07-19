@@ -48,14 +48,14 @@ class OliveTemplate(BaseTemplate):
             ),
             "input_model": {
                 "type": ComboBoxOption(
-                    default="PytorchModelHandler",
+                    default="PytorchModel",
                     converter=GenericConverter(
                         [
-                            "PytorchModelHandler",
-                            "ONNXModelHandler",
-                            "OpenVINOModelHandler",
-                            "TensorFlowModelHandler",
-                            "QNNModelHandler",
+                            "PytorchModel",
+                            "ONNXModel",
+                            "OpenVINOModel",
+                            "TensorFlowModel",
+                            "QNNModel",
                         ],
                         [
                             "Pytorch Model",
@@ -69,11 +69,11 @@ class OliveTemplate(BaseTemplate):
                     ui_group="model_type",
                     ui_info=GUIMessage("The model type to optimize"),
                     values=[
-                        "PytorchModelHandler",
-                        "ONNXModelHandler",
-                        "OpenVINOModelHandler",
-                        "TensorFlowModelHandler",
-                        "QNNModelHandler",
+                        "PytorchModel",
+                        "ONNXModel",
+                        "OpenVINOModel",
+                        "TensorFlowModel",
+                        "QNNModel",
                     ],
                 ),
                 "model_path": FileSelectorOption(
