@@ -286,7 +286,7 @@ def initialize_models(width: int, height: int):
                 )
 
             case "gmfss":
-                from module.models.vfi.gmfss.gmfss import GMFSS
+                from src.module.models.vfi.gmfss.gmfss import GMFSS
 
                 interpolateProcess = GMFSS(
                     int(self.interpolateFactor),
@@ -465,7 +465,7 @@ def initialize_models(width: int, height: int):
                         )
                     )
                 case "fastlinedarken":
-                    from module.models.extraArches.fastlinedarken import (
+                    from src.module.models.extraArches.fastlinedarken import (
                         FastLineDarkenWithStreams,
                     )
 
@@ -475,7 +475,7 @@ def initialize_models(width: int, height: int):
                         )
                     )
                 case "fastlinedarken-tensorrt":
-                    from module.models.extraArches.fastlinedarken import (
+                    from src.module.models.extraArches.fastlinedarken import (
                         FastLineDarkenTRT,
                     )
 
@@ -495,7 +495,7 @@ def initialize_models(width: int, height: int):
                     | "linethinner-medium-cuda"
                     | "linethinner-heavy-cuda"
                 ):
-                    from module.models.extraArches.linethinner import LineThin
+                    from src.module.models.extraArches.linethinner import LineThin
 
                     device = "cuda" if "cuda" in method else "cpu"
                     variant = method.replace("-cuda", "").replace("linethinner-", "")
@@ -521,21 +521,21 @@ def initialize_models(width: int, height: int):
 
         match self.dedupMethod:
             case "ssim":
-                from module.models.dedup.dedup import DedupSSIM
+                from src.module.models.dedup.dedup import DedupSSIM
 
                 dedupProcess = DedupSSIM(
                     self.dedupSens,
                 )
 
             case "mse":
-                from module.models.dedup.dedup import DedupMSE
+                from src.module.models.dedup.dedup import DedupMSE
 
                 dedupProcess = DedupMSE(
                     self.dedupSens,
                 )
 
             case "ssim-cuda":
-                from module.models.dedup.dedup import DedupSSIMCuda
+                from src.module.models.dedup.dedup import DedupSSIMCuda
 
                 dedupProcess = DedupSSIMCuda(
                     self.dedupSens,
@@ -543,7 +543,7 @@ def initialize_models(width: int, height: int):
                 )
 
             case "vmaf" | "vmaf-cuda":
-                from module.models.dedup.dedup import DedupVMAF
+                from src.module.models.dedup.dedup import DedupVMAF
 
                 dedupProcess = DedupVMAF(
                     dedupMethod=self.dedupMethod,
@@ -552,7 +552,7 @@ def initialize_models(width: int, height: int):
                 )
 
             case "mse-cuda":
-                from module.models.dedup.dedup import DedupMSECuda
+                from src.module.models.dedup.dedup import DedupMSECuda
 
                 dedupProcess = DedupMSECuda(
                     self.dedupSens,
@@ -560,7 +560,7 @@ def initialize_models(width: int, height: int):
                 )
 
             case "flownets":
-                from module.models.dedup.dedup import DedupFlownetS
+                from src.module.models.dedup.dedup import DedupFlownetS
 
                 dedupProcess = DedupFlownetS(
                     half=self.half,

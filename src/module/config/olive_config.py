@@ -3,8 +3,8 @@ from typing import Self
 
 from applib import ConfigBase, CoreValidationModelGenerator, MappingBase
 
-from module.config.templates.onnx.olive_template import OliveTemplate
 from src.module.config.tas_args import TASArgs
+from src.module.config.templates.onnx.olive_template import OliveTemplate
 
 
 class OliveConfig(ConfigBase):

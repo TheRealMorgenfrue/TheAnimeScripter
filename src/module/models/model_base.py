@@ -8,9 +8,9 @@ import onnxruntime
 from applib import LoggingManager
 from torch import Tensor
 
-from module.config.io_binding_config import IOBindingConfig
-from module.config.olive_config import OliveConfig
-from module.config.tas_config import TASConfig
+from src.module.config.io_binding_config import IOBindingConfig
+from src.module.config.olive_config import OliveConfig
+from src.module.config.tas_config import TASConfig
 
 
 class ModelBase:

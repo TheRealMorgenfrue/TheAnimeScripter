@@ -15,9 +15,9 @@ from applib import LoggingManager
 from torch import Tensor, dtype
 from torch.nn import functional
 
-from module.io.encoding_settings import get_pix_fmt, match_encoder
 from src.module.config.input_metadata_config import InputMetadataConfig
 from src.module.config.tas_config import TASConfig
+from src.module.io.encoding_settings import get_pix_fmt, match_encoder
 
 from ..utils.cuda_checker import CudaChecker
 
