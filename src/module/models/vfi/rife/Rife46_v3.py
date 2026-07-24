@@ -95,11 +95,22 @@ class IFNet(nn.Module):
         self.height = height
         self.blocks = [self.block0, self.block1, self.block2, self.block3]
 
-        self.dtype = torch.float16 if self.half else torch.float32
-        tmp = max(32, int(32 / 1.0))
-        self.pw = math.ceil(self.width / tmp) * tmp
-        self.ph = math.ceil(self.height / tmp) * tmp
-        self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
+        self.dtype = (
+            torch.float16 if self.half else torch.float32
+        )  # FIXME: This shouldn't be handled here. It is handled before the model is constructed, in VFIBase or equivalent.
+        tmp = max(32, int(32 / 1.0))  # FIXME: This shouldn't be handled here
+        self.pw = (
+            math.ceil(self.width / tmp) * tmp
+        )  # FIXME: This shouldn't be handled here
+        self.ph = (
+            math.ceil(self.height / tmp) * tmp
+        )  # FIXME: This shouldn't be handled here
+        self.padding = (
+            0,
+            self.pw - self.width,
+            0,
+            self.ph - self.height,
+        )  # FIXME: This shouldn't be handled here
         self.tenFlow = torch.tensor(
             [(self.pw - 1.0) / 2.0, (self.ph - 1.0) / 2.0],
             dtype=self.dtype,

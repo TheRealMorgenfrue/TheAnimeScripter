@@ -112,10 +112,21 @@ class IFNet(nn.Module):
             self.block2,
             self.block3,
         ]
-        tmp = max(64, int(64 / 1.0))
-        self.pw = math.ceil(self.width / tmp) * tmp
-        self.ph = math.ceil(self.height / tmp) * tmp
-        self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
+        tmp = max(
+            64, int(64 / 1.0)
+        )  # FIXME: This shouldn't be handled here. It is handled before the model is constructed, in VFIBase or equivalent.
+        self.pw = (
+            math.ceil(self.width / tmp) * tmp
+        )  # FIXME: This shouldn't be handled here
+        self.ph = (
+            math.ceil(self.height / tmp) * tmp
+        )  # FIXME: This shouldn't be handled here
+        self.padding = (
+            0,
+            self.pw - self.width,
+            0,
+            self.ph - self.height,
+        )  # FIXME: This shouldn't be handled here
         self.tenFlow = torch.tensor(
             [(self.pw - 1.0) / 2.0, (self.ph - 1.0) / 2.0],
             dtype=self.dtype,
