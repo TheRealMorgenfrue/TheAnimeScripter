@@ -1,9 +1,8 @@
 import os
+import queue
 import traceback
 from concurrent.futures import ThreadPoolExecutor
-from fractions import Fraction
 from math import ceil
-from queue import Queue
 from time import time
 
 from applib import LoggingManager
@@ -11,11 +10,13 @@ from torch import Tensor
 from torch.profiler import ProfilerActivity, profile
 from tqdm import tqdm
 
+from module.models.model_base import ModelBase
 from src.module.config.tas_args import TASArgs
 from src.module.config.tas_config import TASConfig
 from src.module.initializeModels import initialize_models
 from src.module.io.get_video_metadata import get_video_metadata
 from src.module.io.io_buffers import (
+    PeekQueue,
     ReadBuffer,
     create_write_buffer,
 )
@@ -37,65 +38,62 @@ class VideoProcessor:
         self.config = TASConfig()
         self.error_buffer = []  # Stores errors from processing threads
 
+        # Input args
         self.path = path_config
         self.input_metadata = get_video_metadata(self.path.input_path)
+        self.width = self.input_metadata["width"]
+        self.height = self.input_metadata["height"]
+        self.fps = self.input_metadata["fps"]
 
-        width = self.input_metadata["width"]
-        height = self.input_metadata["height"]
+        # Config args
+        self.vfi: bool = self.config["vfi"]
+        self.vfi_factor: float = self.config["vfi_factor"]
+        self.vfi_model: str = self.config["vfi_model"]
+        self.sr: bool = self.config["sr"]
+
+        self._configure_processing_options()  # Must be called before "Frame processing"
 
         # Frame processing
-        self.dedup_count = 0
+        self.should_get_next_frame = self.config["sr_model"] == "animesr" or (
+            self.vfi and self.vfi_model.startswith(("distildrba", "atr"))
+        )
         self.frame_counter = 0
-        self.timesteps: list[float]
         self.vfi_factor_numerator = 1
         self.vfi_factor_denominator = 1
-        self.vfi_buffer: Queue
+
+        self.process_list: list[ModelBase] = list(
+            initialize_models(width=self.width, height=self.height)
+        )
+        self.current_frame_buffer: PeekQueue[Tensor] = PeekQueue(
+            maxsize=ceil(self.vfi_factor)
+        )
         self.read_buffer = ReadBuffer(
             input_path=self.path.input_path,
-            width=width,
-            height=height,
+            width=self.width,
+            height=self.height,
         )
         self.write_buffer = create_write_buffer(
             encode_method=self.config["encode_method"],
-            input=self.path.input_path,
-            output=self.path.output_path,
-            width=width,
-            height=height,
-            fps=self.input_metadata["fps"],
+            input_path=self.path.input_path,
+            output_path=self.path.output_path,
+            width=self.width,
+            height=self.height,
+            fps=self.fps,
+            input_metadata_config=self.input_metadata,
             grayscale=False,
             transparent=False,
         )
 
-        # Config args
-        self.dedup: bool = self.config["dedup"]
-        self.vfi: bool = self.config["vfi"]
-        self.vfi_factor: float = self.config["vfi_factor"]
-        self.vfi_model: str = self.config["vfi_model"]
-        self.vfi_first: bool = self.config["vfi_first"]
-        self.sr: bool = self.config["sr"]
-
-        (
-            self.upscale_process,
-            self.interpolate_process,
-            self.restore_process,
-            self.dedup_process,
-        ) = initialize_models(width=width, height=height)
-
-        self._configure_processing_options()
         self._execute_pipeline()
 
     def _configure_processing_options(self) -> None:
         """Configure processing options based on the selected operations."""
         if self.vfi:
-            new_fps = self.input_metadata["fps"] * self.vfi_factor
-            self.input_metadata["fps"] = new_fps
-
+            self.fps *= self.vfi_factor
         if self.sr:
             sr_factor = self.config["sr_factor"]
-            new_width = self.input_metadata["width"] * sr_factor
-            new_height = self.input_metadata["height"] * sr_factor
-            self.input_metadata["width"] = new_width
-            self.input_metadata["height"] = new_height
+            self.width *= sr_factor
+            self.height *= sr_factor
 
     def _execute_pipeline(self) -> None:
         """Select and execute the appropriate processing method based on user options."""
@@ -103,105 +101,35 @@ class VideoProcessor:
 
         self.start()
 
-    def _process_frame(self, frame: Tensor, next_frame: Tensor | None) -> None:
+    def _process_frame(self, frame: Tensor) -> None:
         """
         Process a single video frame through the configured enhancement pipeline.
         """
+        next_frame = self.read_buffer.peek() if self.should_get_next_frame else None
+        for process in self.process_list:
+            for _ in range(len(self.current_frame_buffer.queue)):
+                try:
+                    current_frame = self.current_frame_buffer.get_nowait()
+                except queue.Empty:
+                    current_frame = frame
 
-        if self.dedup and self.dedup_process(frame):
-            self.dedup_count += 1
-            return
+                if self.should_get_next_frame:
+                    try:
+                        current_next_frame = self.current_frame_buffer.peek()
+                    except queue.Empty:
+                        current_next_frame = next_frame
+                else:
+                    current_next_frame = next_frame
 
-        if self.vfi:
-            self.timesteps = []
-            if isinstance(self.vfi, float):
-                current_index = self.frame_counter
-                next_index = current_index + 1
-
-                output_start = (
-                    current_index * self.vfi_factor_numerator
-                ) // self.vfi_factor_denominator
-                output_end = (
-                    next_index * self.vfi_factor_numerator
-                ) // self.vfi_factor_denominator
-
-                frames_to_insert = output_end - output_start - 1
-
-                for i in range(1, frames_to_insert + 1):
-                    outputIDX = output_start + i
-                    t = (
-                        outputIDX
-                        * self.vfi_factor_denominator
-                        % self.vfi_factor_numerator
-                    ) / self.vfi_factor_numerator
-                    self.timesteps.append(t)
-
-                self.frame_counter += 1
-            else:
-                frames_to_insert = (
-                    int(self.vfi_factor) - 1
-                )  # FIXME: Ensure VFI_factor >= 1
-
-        if self.vfi_first:
-            self._vfi_first(frame, next_frame, frames_to_insert)
-        else:
-            self._vfi_last(frame, next_frame, frames_to_insert)
-
-    def _vfi_first(
-        self, frame: Tensor, next_frame: Tensor | None, frames_to_insert: int
-    ) -> None:
-        """Process frame with interpolation-first pipeline order."""
-        if self.vfi:
-            if next_frame is not None:
-                self.interpolate_process(
-                    frame,
-                    next_frame,
-                    self.vfi_buffer,
-                    frames_to_insert,
-                    self.timesteps,
+                frame_predictions = process.inference(
+                    frame=current_frame,
+                    next_frame=current_next_frame,
                 )
-            else:
-                self.interpolate_process(
-                    frame, self.vfi_buffer, frames_to_insert, self.timesteps
-                )
+                for frame in frame_predictions:
+                    self.current_frame_buffer.put_nowait(frame)
 
-        if self.sr:
-            if self.vfi:
-                while not self.vfi_buffer.empty():
-                    # SAFETY: vfi_buffer is never None if vfi_first is True
-                    self.write_buffer.write(
-                        self.upscale_process(self.vfi_buffer.get(), next_frame)
-                    )
-            self.write_buffer.write(self.upscale_process(frame, next_frame))
-
-        else:
-            if self.vfi:
-                while not self.vfi_buffer.empty():
-                    self.write_buffer.write(self.vfi_buffer.get())
-            self.write_buffer.write(frame)
-
-    def _vfi_last(
-        self, frame: Tensor, next_frame: Tensor | None, frames_to_insert: int
-    ) -> None:
-        """Process frame with interpolation-last pipeline order."""
-        if self.sr:
-            frame = self.upscale_process(frame, next_frame)
-
-        if self.vfi:
-            if next_frame is not None:
-                self.interpolate_process(
-                    frame,
-                    next_frame,
-                    self.write_buffer,
-                    frames_to_insert,
-                    self.timesteps,
-                )
-            else:
-                self.interpolate_process(
-                    frame, self.write_buffer, frames_to_insert, self.timesteps
-                )
-
-        self.write_buffer.write(frame)
+        for _ in range(len(self.current_frame_buffer.queue)):
+            self.write_buffer.write(self.current_frame_buffer.get_nowait())
 
     def _process(self):
         """
@@ -210,24 +138,8 @@ class VideoProcessor:
         Processes all frames through the configured enhancement pipeline and
         tracks processing statistics.
         """
-        increment = 1
+        increment = self.vfi_factor if self.vfi else 1
         total_frames_to_process = self.input_metadata["total_frames_to_process"]
-        should_get_next_frame = self.config["sr_model"] == "animesr" or (
-            self.vfi and self.vfi_model.startswith(("distildrba", "atr"))
-        )
-
-        if self.vfi:
-            increment = self.vfi_factor
-
-            if isinstance(self.vfi_factor, float):
-                factor = Fraction(self.vfi_factor).limit_denominator(100)
-                self.vfi_factor_numerator = factor.numerator
-                self.vfi_factor_denominator = factor.denominator
-            else:
-                self.vfi_factor_numerator = self.vfi_factor
-
-            if self.vfi_first:
-                self.vfi_buffer = Queue(maxsize=ceil(self.vfi_factor))
 
         try:
             for i in tqdm(
@@ -246,12 +158,11 @@ class VideoProcessor:
                 if frame is None:
                     # End of framebuffer
                     self.logger.warning(
-                        f"Frame buffer ended unexpectedly - the output is most likely incomplete. Processed {i} of {total_frames_to_process} frames"
+                        f"Frame buffer ended unexpectedly. The output is most likely incomplete. Processed {i} of {total_frames_to_process} frames"
                     )
                     break
 
-                next_frame = self.read_buffer.peek() if should_get_next_frame else None
-                self._process_frame(frame, next_frame)
+                self._process_frame(frame)
             self.write_buffer.close()
         except Exception as e:
             self.error_buffer.append(e)
