@@ -48,7 +48,9 @@ Fallback
 
 ## Performance
 
-General
+Investigate feasability of using [codon](https://github.com/exaloop/codon) to compile all or parts of TAS to machine code.
+
+### General
 
 - https://onnxruntime.ai/docs/performance/
 - https://onnxruntime.ai/docs/execution-providers/
