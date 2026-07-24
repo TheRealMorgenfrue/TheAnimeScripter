@@ -723,8 +723,8 @@ class WriteBufferNeLux(WriteBuffer):
 
     def __init__(
         self,
-        input: str,
-        output: str,
+        input_path: str,
+        output_path: str,
         width: int,
         height: int,
         fps: float,
@@ -735,9 +735,9 @@ class WriteBufferNeLux(WriteBuffer):
 
         Parameters
         ----------
-        input : str
+        input_path : str
             The path to the input file.
-        output : str
+        output_path : str
             The path to the output file.
         width : int
             The width of the output video in pixels.
@@ -749,8 +749,8 @@ class WriteBufferNeLux(WriteBuffer):
             The encoding method to encode the output file with.
         """
         super().__init__()
-        self.input = input
-        self.output = os.path.normpath(output)
+        self.input_path = input_path
+        self.output_path = os.path.normpath(output_path)
         self.width = width
         self.height = height
         self.fps = fps
@@ -781,7 +781,7 @@ class WriteBufferNeLux(WriteBuffer):
                 time.sleep(0.001)
 
             self.encoder = nelux.VideoEncoder(
-                self.output,
+                self.output_path,
                 codec=self.codec,
                 width=self.width,
                 height=self.height,
@@ -791,7 +791,7 @@ class WriteBufferNeLux(WriteBuffer):
             if hasattr(self.encoder, "is_hardware_encoder"):
                 if self.encoder.is_hardware_encoder:
                     self._logger.debug(
-                        f"NeLux NVENC encoder confirmed: {self.codec} -> {self.output}"
+                        f"NeLux NVENC encoder confirmed: {self.codec} -> {self.output_path}"
                     )
                 else:
                     self._logger.warning(
@@ -799,7 +799,7 @@ class WriteBufferNeLux(WriteBuffer):
                     )
             else:
                 self._logger.debug(
-                    f"Nelux encoder created: {self.codec} -> {self.output}"
+                    f"Nelux encoder created: {self.codec} -> {self.output_path}"
                 )
 
             while True:
