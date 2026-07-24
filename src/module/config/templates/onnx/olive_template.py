@@ -93,43 +93,48 @@ class OliveTemplate(BaseTemplate):
                     ),
                 ),
                 # "io_config": {
-                #     "input_names": Option(default=["input"]),
-                #     "input_shapes": Option(default=[[]]),
-                #     "output_names": Option(default=["output"]),
-                #     "dynamic_axes": {
-                #         "input": Option(default={"0": "batch_size"}),
-                #         "output": Option(default={"0", "batch_size"}),
-                #     },
+                #     "input_names": Option(type=list[str]),
+                #     "input_types": Option(type=list[str]),
+                #     "input_shapes": Option(type=list[list[int]]),
+                #     "output_names": Option(type=list[str]),
+                #     "dynamic_axes": Option(
+                #         default={
+                #             "input": Option(default={"0": "batch_size"}),
+                #             "output": Option(default={"0", "batch_size"}),
+                #         },
+                #         type=dict[str, dict[str, str]],
+                #     ),
                 # },
             },
             "systems": {"local_system": {"type": "LocalSystem"}},
-            "evaluators": {
-                # "common_evaluator": {
-                #     "metrics": [
-                #         {
-                #             "name": "latency",
-                #             "type": "latency",
-                #             "sub_types": [
-                #                 {
-                #                     "name": "avg",
-                #                     "goal": {
-                #                         "type": "percent-min-improvement",
-                #                         "value": 20,
-                #                     },
-                #                 },
-                #                 {"name": "max"},
-                #                 {"name": "min"},
-                #             ],
-                #             "user_config": {
-                #                 "user_script": "user_script.py",
-                #                 "data_dir": "data",
-                #                 "dataloader_func": "create_dataloader",
-                #                 "batch_size": 16,
-                #             },
-                #         }
-                #     ]
-                # }
-            },
+            "evaluators": "common_evaluator",
+            # {
+            # "common_evaluator": {
+            #     "metrics": [
+            #         {
+            #             "name": "latency",
+            #             "type": "latency",
+            #             "sub_types": [
+            #                 {
+            #                     "name": "avg",
+            #                     "goal": {
+            #                         "type": "percent-min-improvement",
+            #                         "value": 20,
+            #                     },
+            #                 },
+            #                 {"name": "max"},
+            #                 {"name": "min"},
+            #             ],
+            #             "user_config": {
+            #                 "user_script": "user_script.py",
+            #                 "data_dir": "data",
+            #                 "dataloader_func": "create_dataloader",
+            #                 "batch_size": 16,
+            #             },
+            #         }
+            #     ]
+            # }
+            # },
             "passes": {
                 "enabled_passes": {
                     "peephole": Option(
@@ -170,43 +175,42 @@ class OliveTemplate(BaseTemplate):
                             "For instance, fp32 → fp16 → fp32 → identity produced by dynamo export",
                         ),
                     ),
-                }
+                },
             },
             "engine": {
-                "search_strategy": {
-                    "execution_order": ComboBoxOption(
-                        default="joint",
-                        ui_info=GUIMessage(
-                            "The execution order of the optimizations of passes"
-                        ),
-                        values=["pass-by-pass", "joint"],
-                    ),
-                    "sampler": ComboBoxOption(
-                        default="sequential",
-                        ui_info=GUIMessage(
-                            "The search sampler to use while traversing",
-                            AutoTextWrap.text_format(
-                                """
-                                Sampler details:
-                                
-                                random: Samples random points from the search space.
-                                sequential: Iterates over the entire search space sequentially.
-                                tpe: Sample using TPE (Tree-structured Parzen Estimator) algorithm.
-                                """
-                            ),
-                        ),
-                        values=["random", "sequential", "tpe"],
-                    ),
-                    "max_time": NumberOption(
-                        default=120,
-                        min=1,
-                        max=None,
-                        ui_info=GUIMessage(
-                            "The maximum time of the search in seconds",
-                            "Only valid for joint execution order",
-                        ),
-                    ),
-                },
+                # "search_strategy": {
+                #     "execution_order": ComboBoxOption(
+                #         default="joint",
+                #         ui_info=GUIMessage(
+                #             "The execution order of the optimizations of passes"
+                #         ),
+                #         values=["pass-by-pass", "joint"],
+                #     ),
+                #     "sampler": ComboBoxOption(
+                #         default="sequential",
+                #         ui_info=GUIMessage(
+                #             "The search sampler to use while traversing",
+                #             AutoTextWrap.text_format(
+                #                 """
+                #                 Sampler details:
+                #                 random: Samples random points from the search space.
+                #                 sequential: Iterates over the entire search space sequentially.
+                #                 tpe: Sample using TPE (Tree-structured Parzen Estimator) algorithm.
+                #                 """
+                #             ),
+                #         ),
+                #         values=["random", "sequential", "tpe"],
+                #     ),
+                #     "max_time": NumberOption(
+                #         default=120,
+                #         min=1,
+                #         max=None,
+                #         ui_info=GUIMessage(
+                #             "The maximum time of the search in seconds",
+                #             "Only valid for joint execution order",
+                #         ),
+                #     ),
+                # },
                 "host": "local_system",
                 "target": "local_system",
                 "cache_dir": FileSelectorOption(
