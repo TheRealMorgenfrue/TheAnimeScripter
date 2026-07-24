@@ -283,7 +283,7 @@ class ModelBase:
         return (input_configs, output_configs)
 
     @abstractmethod
-    def __call__(self, frame: Tensor, **kwargs) -> None:
+    def inference(self, frame: Tensor, **kwargs) -> list[Tensor]:
         """Performs inference using a video frame as input.
 
         Parameters
@@ -294,5 +294,10 @@ class ModelBase:
             Additional arguments which might be used by the model.
 
             NOTE: All subclassed models must accept keyword arguments even if not used!
+
+        Returns
+        -------
+        list[Tensor]
+            The prediction(s) of the model.
         """
         ...
