@@ -1,12 +1,14 @@
 import logging
 import os
+import queue
 import subprocess
 import threading
 import time
 import traceback
+import types
 from abc import abstractmethod
 from queue import Queue
-from typing import override
+from typing import Any, override
 
 import cv2
 import nelux
@@ -20,6 +22,31 @@ from src.module.config.tas_config import TASConfig
 from src.module.io.encoding_settings import get_pix_fmt, match_encoder
 
 from ..utils.cuda_checker import CudaChecker
+
+
+class PeekQueue(Queue):
+    """Wrapper class around queue.Queue to allow peeking at the next item in the queue without removing it."""
+
+    @classmethod
+    def __class_getitem__(cls, item: Any) -> types.GenericAlias:
+        return super().__class_getitem__(item)
+
+    def peek(self):
+        """Peeks at the next item in the queue without removing it.
+
+        Returns
+        -------
+            The next item in the queue.
+
+        Raises
+        ------
+        queue.Empty
+            If no next item is available.
+        """
+        with self.mutex:
+            if len(self.queue) > 0:
+                return self.queue[0]
+        raise queue.Empty
 
 
 class ReadBuffer:
