@@ -10,10 +10,8 @@ from torch import Tensor
 from torch.profiler import ProfilerActivity, profile
 from tqdm import tqdm
 
-from module.models.model_base import ModelBase
 from src.module.config.tas_args import TASArgs
 from src.module.config.tas_config import TASConfig
-from src.module.initializeModels import initialize_models
 from src.module.io.get_video_metadata import get_video_metadata
 from src.module.io.io_buffers import (
     PeekQueue,
@@ -21,6 +19,8 @@ from src.module.io.io_buffers import (
     create_write_buffer,
 )
 from src.module.io.io_handler import PathConfiguration
+from src.module.models.model_base import ModelBase
+from src.module.models.model_handler import ModelHandler
 from src.module.utils.cuda_checker import CudaChecker
 
 
@@ -57,12 +57,8 @@ class VideoProcessor:
         self.should_get_next_frame = self.config["sr_model"] == "animesr" or (
             self.vfi and self.vfi_model.startswith(("distildrba", "atr"))
         )
-        self.frame_counter = 0
-        self.vfi_factor_numerator = 1
-        self.vfi_factor_denominator = 1
-
-        self.process_list: list[ModelBase] = list(
-            initialize_models(width=self.width, height=self.height)
+        self.process_list: list[ModelBase] = ModelHandler().initialize_models(
+            width=self.width, height=self.height
         )
         self.current_frame_buffer: PeekQueue[Tensor] = PeekQueue(
             maxsize=ceil(self.vfi_factor)
@@ -97,7 +93,7 @@ class VideoProcessor:
 
     def _execute_pipeline(self) -> None:
         """Select and execute the appropriate processing method based on user options."""
-        # TODO: Add scene detection (called Autoclip in TAS)
+        # TODO: Add scene detection
 
         self.start()
 
