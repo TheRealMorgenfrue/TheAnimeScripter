@@ -2,14 +2,12 @@ from pathlib import Path
 from typing import Self, override
 
 from applib import (
-    AutoTextWrap,
     BaseTemplate,
     ComboBoxOption,
     FileSelectorOption,
     Flags,
     GenericConverter,
     GUIMessage,
-    NumberOption,
     Option,
     TextEditOption,
     UIGroups,
@@ -18,6 +16,7 @@ from applib import (
 from src.module.config.tas_args import TASArgs
 
 
+# Olive settings defined at: https://microsoft.github.io/Olive/reference/options.html#input-model-information
 class OliveTemplate(BaseTemplate):
     _instance = None
 
@@ -92,19 +91,15 @@ class OliveTemplate(BaseTemplate):
                         "It should take the model_path as an argument and return the loaded PyTorch model.",
                     ),
                 ),
-                # "io_config": {
-                #     "input_names": Option(type=list[str]),
-                #     "input_types": Option(type=list[str]),
-                #     "input_shapes": Option(type=list[list[int]]),
-                #     "output_names": Option(type=list[str]),
-                #     "dynamic_axes": Option(
-                #         default={
-                #             "input": Option(default={"0": "batch_size"}),
-                #             "output": Option(default={"0", "batch_size"}),
-                #         },
-                #         type=dict[str, dict[str, str]],
-                #     ),
-                # },
+                "io_config": {
+                    "input_names": Option(type=list[str]),
+                    "input_types": Option(type=list[str]),
+                    "input_shapes": Option(type=list[list[int]]),
+                    "output_names": Option(type=list[str]),
+                    "dynamic_axes": Option(
+                        type=dict[str, dict[str, str]],
+                    ),
+                },
             },
             "systems": {"local_system": {"type": "LocalSystem"}},
             "evaluators": "common_evaluator",
