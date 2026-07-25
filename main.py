@@ -22,6 +22,10 @@ along with this program.  If not, see {http://www.gnu.org/licenses/}.
 Home: https://github.com/NevermindNilas/TheAnimeScripter
 """
 
+import warnings
+
+warnings.filterwarnings("ignore", module="pydantic")
+
 import os
 import sys
 import traceback
