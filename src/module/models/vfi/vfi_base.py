@@ -1,31 +1,49 @@
-import math
 from fractions import Fraction
 from pathlib import Path
 from typing import override
 
 import torch
+import torch.nn.functional as F
 from torch import Tensor
+from torch.types import Device
 
-from src.module.config.io_binding_config import IOBindingConfig
 from src.module.models.model_base import ModelBase
+from src.module.models.vfi.vfi_tensors_base import VFIModelTensors
 
 
 class VFIModelBase(ModelBase):
     """Base class for VFI models"""
 
-    def __init__(self, model_path: Path, vfi_factor: float | int) -> None:
-        super().__init__(model_path, {}, {})
+    def __init__(
+        self,
+        model_path: Path,
+        width: int,
+        height: int,
+        vfi_factor: float | int,
+        multiplier: int = 32,
+        channels: int = 8,
+        dtype: torch.dtype = torch.float32,
+    ) -> None:
+        super().__init__()
         self.vfi_factor = vfi_factor
         self.frame_counter = 0
         self.warmup = True
+        self.run_options = {"disable_synchronize_execution_providers": "1"}
+        self.tensors = VFIModelTensors(width, height, multiplier, channels)
 
         if isinstance(self.vfi_factor, float):
             factor = Fraction(self.vfi_factor).limit_denominator(100)
             self.vfi_factor_numerator = factor.numerator
             self.vfi_factor_denominator = factor.denominator
-        else:
-            self.vfi_factor_numerator = self.vfi_factor
-            self.vfi_factor_denominator = 1
+
+        self.prepare_model(
+            model_path=model_path,
+            input_names=self.tensors.input_names,
+            input_types=[f"{dtype}" for _ in range(len(self.tensors.input_names))],
+            input_shapes=self.tensors.input_shapes,
+            output_names=self.tensors.output_names,
+            dynamic_axes=self.tensors.get_dynamic_axes(),
+        )
 
     def _compute_timesteps(self) -> list[float]:
         """Computes the timesteps between two frames where interpolated
@@ -77,134 +95,60 @@ class VFIModelBase(ModelBase):
         """
         self.process_frame(frame, "I0")
 
-    def process_frame(self, frame: Tensor, name: str) -> None: ...
+    def process_frame(self, frame: Tensor, name: str) -> None:
+        # TODO: Check if frame padding is necessary
+        match name:
+            case "I0":
+                self.tensors.I0_IN.copy_(
+                    F.pad(frame, self.tensors.padding), non_blocking=True
+                )
+            case "I1":
+                self.tensors.I1_IN.copy_(
+                    F.pad(frame, self.tensors.padding), non_blocking=True
+                )
+            case "F0":
+                # TODO: The norm should be performed in the model (it's the head in the model, i.e. the encode step)
+                self.tensors.F0_IN.copy_(
+                    F.pad(frame, self.tensors.padding), non_blocking=True
+                )
+            case "cache_I0":
+                self.tensors.I0_IN.copy_(self.tensors.I1_IN, non_blocking=True)
+            case "cache_F0":
+                self.tensors.F0_IN.copy_(self.tensors.F1_OUT, non_blocking=True)
 
     @override
-    def inference(self, frame: Tensor, **kwargs) -> None:
+    def get_io_tensors(
+        self, dtype: torch.dtype, device: Device
+    ) -> tuple[dict[str, Tensor], dict[str, Tensor]]:
+        return self.tensors.create_io_tensors(
+            input_types=dtype,
+            input_devices=device,
+            output_types=dtype,
+            output_devices=device,
+        )
+
+    @override
+    def inference(self, frame: Tensor, **kwargs) -> list[Tensor]:
+        # TODO: This function can be faster with overlapping IO and compute
+        # https://onnxruntime.ai/docs/performance/device-tensor.html
+        # https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html#performance-tuning
+        # TODO: This function can be faster with batched inference
+
         if self.warmup:
             self.process_frame(frame, "F0")
             self.process_frame(frame, "I0")
             self.warmup = False
-            return
-
+            return []
         self.process_frame(frame, "I1")
+
+        predictions = []
         for timestep in self._compute_timesteps():
-            pass
+            self.tensors.TIMESTEP_IN.fill_(timestep)
+            self.session.run_with_iobinding(
+                self.io_binding  # , run_options=self.run_options
+            )  # Synchronous by default
+            predictions.append(self.tensors.OUTPUT_OUT.clone())
 
-
-class VFIModelTensorsBase:
-    def __init__(
-        self,
-        width: int,
-        height: int,
-        multiplier: int,
-        channels: int,
-        dtype: torch.dtype,
-        device: torch.Device,
-    ) -> None:
-        padded_width = self.compute_resolution_padding(width, multiplier)
-        padded_height = self.compute_resolution_padding(height, multiplier)
-
-        self.I0 = torch.zeros(
-            1,
-            3,
-            padded_height,
-            padded_width,
-            dtype=dtype,
-            device=device,
-        )
-        self.I1 = torch.zeros(
-            1,
-            3,
-            padded_height,
-            padded_width,
-            dtype=dtype,
-            device=device,
-        )
-        self.F0 = torch.zeros(
-            1,
-            channels,
-            padded_height,
-            padded_width,
-            dtype=dtype,
-            device=device,
-        )
-
-        self.F1 = torch.zeros(
-            1,
-            channels,
-            padded_height,
-            padded_width,
-            dtype=dtype,
-            device=device,
-        )
-
-        self.timestep = torch.full(
-            (1, 1, padded_height, padded_width),
-            0.5,
-            dtype=dtype,
-            device=device,
-        )
-
-        self.output = torch.zeros(
-            (1, 3, height, width),
-            device=device,
-            dtype=dtype,
-        )
-
-    def create_input_tensors(
-        self,
-        padded_width,
-        padded_height: int,
-        channels: int,
-        dtype: torch.dtype,
-        device: torch.Device,
-    ) -> list[Tensor]:
-        img0_input = torch.zeros(
-            1, 3, padded_height, padded_width, dtype=dtype, device=device
-        )
-        img1_input = torch.zeros(
-            1, 3, padded_height, padded_width, dtype=dtype, device=device
-        )
-        timestep_input = torch.full(
-            (1, 1, padded_height, padded_width),
-            0.5,
-            dtype=dtype,
-            device=device,
-        )
-        f0_input = torch.zeros(
-            1,
-            channels,
-            padded_height,
-            padded_width,
-            dtype=dtype,
-            device=device,
-        )
-
-        inputList = [img0_input, img1_input, timestep_input, f0_input]
-        inputNames = ["img0", "img1", "timestep", "f0"]
-        outputNames = ["output", "f1"]
-        dynamicAxes = {
-            "img0": {2: "height", 3: "width"},
-            "img1": {2: "height", 3: "width"},
-            "timestep": {2: "height", 3: "width"},
-            "output": {1: "height", 2: "width"},
-            "f0": {2: "height", 3: "width"},
-        }
-
-    def compute_resolution_padding(self, frame_axis: int, multiplier: int) -> int:
-        """Returns the frame size, e.g., height, with padding.
-
-        Parameters
-        ----------
-        frame_size : int
-            The size of one axis of the frame in pixels, e.g. 720.
-        multiplier : int
-            The model multiplier, e.g. 64.
-
-        Returns
-        -------
-        int
-            The padded frame size, e.g. 768.
-        """
-        return math.ceil(frame_axis / multiplier) * multiplier
+        self.process_frame(None, "cache_I0")  # type: ignore
+        self.process_frame(None, "cache_F0")  # type: ignore
+        return predictions
