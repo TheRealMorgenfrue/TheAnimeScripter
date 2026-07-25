@@ -65,6 +65,14 @@ class TASTemplate(BaseTemplate):
                         "NOT IMPLEMENTED YET! Create and use a preset configuration file based on the current arguments"
                     ),
                 ),
+                "model_dir": FileSelectorOption(
+                    default=f"{Path(os.environ['TAS_PATH'], 'weights')}",
+                    ui_show_dir_only=True,
+                    ui_info=GUIMessage(
+                        "The model directory",
+                        f"This is where all models used by {TASArgs.name} are stored",
+                    ),
+                ),
                 "loglevel": ComboBoxOption(
                     default="INFO" if TASArgs.is_release else "DEBUG",
                     actions=LoggingManager().set_level,
@@ -351,13 +359,6 @@ class TASTemplate(BaseTemplate):
                     ui_info=GUIMessage(
                         "Use dynamic scaling for interpolation. This can improve the quality of the interpolation at the cost of performance",
                         "This is experimental and only works with Rife CUDA",
-                    ),
-                ),
-                "static_step": Option(
-                    default=False,
-                    ui_group="g_vfi",
-                    ui_info=GUIMessage(
-                        "Force static timestep generation for Rife CUDA"
                     ),
                 ),
                 "vfi_first": Option(
