@@ -8,6 +8,7 @@ import onnxruntime
 import torch
 from applib import LoggingManager
 from torch import Tensor
+from torch.types import Device
 
 from src.module.config.io_binding_config import IOBindingConfig
 from src.module.config.olive_config import OliveConfig
@@ -18,8 +19,74 @@ class ModelBase:
     """Base class for all models"""
 
     def __init__(
-        self, model_path: Path, inputs: dict[str, Tensor], outputs: dict[str, Tensor]
+        self,
     ) -> None:
+        self.logger = LoggingManager()
+        self.tas_config = TASConfig()
+
+    def prepare_model(
+        self,
+        model_path: Path,
+        input_names: list[str],
+        input_types: list[str],
+        input_shapes: list[list[int]],
+        output_names: list[str],
+        dynamic_axes: dict[str, dict[str, str]],
+    ):
+        """Prepare the selected model for inference.
+
+        This involves:
+
+        1. Loading the model.
+        2. Converting it to ONNX (if needed).
+        3. Optimizing it (if requested).
+        4. Creating input/output model tensors and binding them to a ONNX Runtime.
+
+        Parameters
+        ----------
+        model_path : Path
+            The location of the model to initialize.
+        input_names : list[str]
+            The names the arguments in the model's forward pass.
+            See `ModelTensorsBase.create_io_tensors` for a description.
+        input_types : list[str]
+            The data types of the tensors defined by `input_names`.
+        input_shapes : list[list[int]]
+            The shapes of the tensors defined by `input_names`.
+        output_names : list[str]
+            The names of the returned values in the model's forward pass.
+            See `ModelTensorsBase.create_io_tensors` for a description.
+        dynamic_axes : dict[str, dict[str, str]]
+            The dynamic axes of the model.
+            See `ModelTensorsBase.get_dynamic_axes` for a description.
+        """
+        model_output = self.auto_tune_parameters(
+            model_path=model_path,
+            input_names=input_names,
+            input_types=input_types,
+            input_shapes=input_shapes,
+            output_names=output_names,
+            dynamic_axes=dynamic_axes,
+        )
+        self.session = self.create_inference_session(model_output)
+        self.io_binding = self.apply_io_bindings(
+            self.session.io_binding(),
+            *self.declare_io_bindings(
+                *self.get_io_tensors(  # TODO: Use model_output dtype
+                    dtype=torch.float32, device=model_output.from_device()
+                )
+            ),
+        )
+
+    def auto_tune_parameters(
+        self,
+        model_path: Path,
+        input_names: list[str],
+        input_types: list[str],
+        input_shapes: list[list[int]],
+        output_names: list[str],
+        dynamic_axes: dict[str, dict[str, str]],
+    ) -> olive.ModelOutput:
         """Initialize a model for inference.
 
         Parameters
@@ -27,24 +94,14 @@ class ModelBase:
         model_path : Path
             The location of the model to initialize.
         input_names : list[str]
-            The names of the arguments in the model's forward pass.
-
-            For instance, consider the following model's forward pass:
-            ```
-            def forward(self, img0, img1, timestep, f0): ...
-            ```
-            Here, the `input_names` is: `["img0", "img1", "timestep", "f0"]`.
-
+            The names the arguments in the model's forward pass.
+            See `ModelTensorsBase.create_io_tensors` for a description.
         output_names : list[str]
             The names of the returned values in the model's forward pass.
-
-            For instance, consider the following return values:
-            ```
-            return (warped_img0 * mask + warped_img1 * (1 - mask))[
-                :, :, : self.height, : self.width
-            ], f1
-            ```
-            Here, the `output_names` would be: `["output", "f1"]`.
+            See `ModelTensorsBase.create_io_tensors` for a description.
+        dynamic_axes : dict[str, dict[str, str]]
+            The dynamic axes of the model.
+            See `ModelTensorsBase.get_dynamic_axes` for a description.
 
         Raises
         ------
@@ -55,43 +112,21 @@ class ModelBase:
         TypeError
             If input is of incorrect type.
         """
-        self.logger = LoggingManager()
-        self.tas_config = TASConfig()
-
-        if self.tas_config["auto_tune"]:
-            input_model = self._auto_tune_parameters(model_path)  # RuntimeError
-        else:
-            input_model = model_path  # TODO: Convert to ONNX if not one already
-
-        # The session controls inference and is main entrypoint for inference.
-        self.session = self._create_inference_session(input_model)
-        # The IO binding controls input/output tensors for inference and defines dataflow.
-        self.io_binding = self._apply_io_bindings(
-            self.session.io_binding(), *self._declare_io_bindings(input_model)
-        )
-
-    def _auto_tune_parameters(self, model_path: Path) -> olive.ModelOutput:
-        """Automatically optimizes the model for inference on the user's hardware.
-
-        The model is converted to ONNX format.
-
-        Parameters
-        ----------
-        model_path : Path
-            The path to the original model.
-            May be in any format supported by Olive (check Olive's template).
-
-        Returns
-        -------
-        ModelOutput
-            The the optimized ONNX model.
-
-        Raises
-        ------
-        RuntimeError
-            If model optimization failed.
-        """
         olive_config = OliveConfig()
+        olive_config.set_value("input_names", input_names, path="io_config")
+        olive_config.set_value(
+            "input_types",
+            input_types,
+            path="io_config",
+        )
+        olive_config.set_value(
+            "input_shapes",
+            input_shapes,
+            path="io_config",
+        )
+        olive_config.set_value("output_names", output_names, path="io_config")
+        olive_config.set_value("dynamic_axes", dynamic_axes, path="io_config")
+
         workflow_output = olive.run(olive_config.get_workflow_config())  # type: ignore # They have outdated type hints (https://microsoft.github.io/Olive/0.12.1/reference/python_api.html)
 
         best_model = workflow_output.get_best_candidate()
@@ -124,10 +159,12 @@ class ModelBase:
 
         return best_model
 
-    def _create_inference_session(
+    def create_inference_session(
         self, input_model: Path | olive.ModelOutput
     ) -> onnxruntime.InferenceSession:
         """Creates a ONNX Runtime inference session for the input model.
+
+        The session is the main entrypoint for inference.
 
         Parameters
         ----------
@@ -157,6 +194,7 @@ class ModelBase:
             provider_options: list[dict[str, Any]] = []
         elif isinstance(input_model, olive.ModelOutput):
             inference_config = input_model.get_inference_config()
+            print(inference_config)
 
             model_path = input_model.model_path
             session_options = inference_config.get("session_options")  # type: ignore
@@ -189,13 +227,15 @@ class ModelBase:
         session.enable_fallback()
         return session
 
-    def _apply_io_bindings(
+    def apply_io_bindings(
         self,
         io_binding: onnxruntime.IOBinding,
         input_bindings: list[IOBindingConfig],
         output_bindings: list[IOBindingConfig],
     ) -> onnxruntime.IOBinding:
         """Apply the IO binding configurations to the ONNX Runtime IOBinding.
+
+        The IO binding controls input/output tensors for inference and defines dataflow.
 
         Parameters
         ----------
@@ -217,11 +257,10 @@ class ModelBase:
             io_binding.bind_output(**ob.get_raw())
         return io_binding
 
-    def _declare_io_bindings(
+    def declare_io_bindings(
         self,
-        # inputs: dict[str, Tensor],
-        # outputs: dict[str, Tensor],
-        test: olive.ModelOutput,
+        inputs: dict[str, Tensor],
+        outputs: dict[str, Tensor],
     ) -> tuple[list[IOBindingConfig], list[IOBindingConfig]]:
         """Define the input and output tensors used by the model.
 
@@ -229,23 +268,8 @@ class ModelBase:
         ----------
         input_names : list[str]
             The names of the arguments in the model's forward pass.
-
-            For instance, consider the following model's forward pass:
-            ```
-            def forward(self, img0, img1, timestep, f0): ...
-            ```
-            Here, the `input_names` is: `["img0", "img1", "timestep", "f0"]`.
-
         output_names : list[str]
             The names of the returned values in the model's forward pass.
-
-            For instance, consider the following return values:
-            ```
-            return (warped_img0 * mask + warped_img1 * (1 - mask))[
-                :, :, : self.height, : self.width
-            ], f1
-            ```
-            Here, the `output_names` would be: `["output", "f1"]`.
 
         Returns
         -------
@@ -257,34 +281,60 @@ class ModelBase:
         is_output = False
         input_configs = []
         output_configs = []
-        # for d in [inputs, None, outputs]:
-        #     if d is None:
-        #         is_output = True
-        #         continue
+        for d in [inputs, None, outputs]:
+            if d is None:
+                is_output = True
+                continue
 
-        #     for name, tensor in d.items():
-        #         data = {
-        #             "name": name,
-        #             "device_type": "cuda",  # TODO: Make a setting
-        #             "device_id": 0,  # TODO: Auto-select based on device_type setting
-        #             "element_type": self.tas_config["precision"],
-        #             "shape": tensor.shape,
-        #             "buffer_ptr": tensor.data_ptr(),
-        #         }
+            for name, tensor in d.items():
+                data = {
+                    "name": name,
+                    "device_type": tensor.device.type,
+                    "device_id": tensor.device.index,
+                    "element_type": self.tas_config[
+                        "precision"
+                    ],  # TODO: Use precision of the tensor, BUT it must be onnx TensorProto!
+                    "shape": tuple(tensor.shape),
+                    "buffer_ptr": tensor.data_ptr(),
+                }
 
-        #         if is_output:
-        #             output_configs.append(IOBindingConfig(f"{name}_outbinding", data))
-        #         else:
-        #             input_configs.append(IOBindingConfig(f"{name}_inbinding", data))
-
-        conf = test.get_inference_config()
-        print(conf)
+                if is_output:
+                    output_configs.append(IOBindingConfig(f"{name}_outbinding", data))
+                else:
+                    input_configs.append(IOBindingConfig(f"{name}_inbinding", data))
 
         return (input_configs, output_configs)
 
     @abstractmethod
+    def get_io_tensors(
+        self, dtype: torch.dtype, device: Device
+    ) -> tuple[dict[str, Tensor], dict[str, Tensor]]:
+        """Returns the input/output tensors which should be used by the model during inference.
+
+        Parameters
+        ----------
+        dtype : torch.dtype
+            The data type of the tensors.
+        device : Device
+            The device to put the tensors on.
+
+        Returns
+        -------
+        tuple[dict[str, Tensor],dict[str, Tensor]]
+            Returns a tuple, where:
+                - tuple[0] are the input tensors.
+                - tuple[1] are the output tensors.
+        """
+        ...
+
+    @abstractmethod
     def inference(self, frame: Tensor, **kwargs) -> list[Tensor]:
         """Performs inference using a video frame as input.
+
+        To perform the actual inference step, call:
+            ```
+            self.session.run_with_iobinding(self.io_binding)
+            ```
 
         Parameters
         ----------
