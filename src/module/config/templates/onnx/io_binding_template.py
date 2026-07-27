@@ -6,6 +6,7 @@ from applib import (
     Flags,
     NumberOption,
     Option,
+    TemplateConfig,
     TextEditOption,
 )
 from onnx import TensorProto
@@ -16,6 +17,8 @@ from src.module.config.tas_args import TASArgs
 
 class IOBindingTemplate(BaseTemplate):
     """ONNX IO bindings"""
+
+    __applib_template_config__ = TemplateConfig({"disable_warnings": "gui"})
 
     _instance = None
 
@@ -48,7 +51,7 @@ class IOBindingTemplate(BaseTemplate):
                     "BF16": TensorProto.BFLOAT16,
                 },
             ),
-            "shape": Option(default=None, type=Size),
+            "shape": Option(default=None, type=tuple[Size]),
             "buffer_ptr": Option(
                 default=None, flags=[Flags.HIDE_IN_CLI, Flags.HIDE_IN_GUI], type=int
             ),
