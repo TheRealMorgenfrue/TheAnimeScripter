@@ -3,6 +3,7 @@ from pathlib import Path
 from shutil import which
 from typing import Self, override
 
+import torch
 from applib import (
     AutoTextWrap,
     BaseTemplate,
@@ -26,7 +27,6 @@ from applib import (
     validate_path,
     validate_theme,
 )
-from onnx import TensorProto
 
 from src.module.config.runners.actions.nelux_actions import set_nelux_log_level
 from src.module.config.runners.validators.validate_nelux import validate_nelux_loglevel
@@ -205,12 +205,12 @@ class TASTemplate(BaseTemplate):
                         "It may take a while to process",
                     ),
                 ),
-                "precision": ComboBoxOption(
+                "precision": ComboBoxOption(  # TODO: Make it used generally or remove it. Currently only used to set precision of input data
                     default="BF16",
                     values={
-                        "FP32": TensorProto.FLOAT,
-                        "FP16": TensorProto.FLOAT16,
-                        "BF16": TensorProto.BFLOAT16,
+                        "FP32": torch.float32,
+                        "FP16": torch.float16,
+                        "BF16": torch.bfloat16,
                     },
                     ui_info=GUIMessage(
                         "Precision of inference",
@@ -243,12 +243,6 @@ class TASTemplate(BaseTemplate):
                         "OpenVINOExecutionProvider",
                         "MIGraphXExecutionProvider",
                     ],
-                ),
-                "static_trt": Option(
-                    default=False,
-                    ui_info=GUIMessage(
-                        "Force static mode engine generation for TensorRT"
-                    ),
                 ),
                 "profile": Option(
                     default=False,
@@ -470,24 +464,6 @@ class TASTemplate(BaseTemplate):
                     max=100.0,
                     ui_group="g_dedup",
                     ui_info=GUIMessage("Deduplication sensitivity"),
-                ),
-                "smooth_dedup": Option(
-                    default=False,
-                    ui_group="g_dedup",
-                    ui_info=GUIMessage(
-                        AutoTextWrap.text_format(
-                            """
-                            Smooth deduplication. 
-                            This will remove duplicates while also generating new frames to make the video smoother.
-                            """
-                        ),
-                        AutoTextWrap.text_format(
-                            """
-                            This is experimental and may not work well with all videos.
-                            Use --vfi_model to set the interpolation model.
-                            """
-                        ),
-                    ),
                 ),
             },
             "Scene Detection": {
