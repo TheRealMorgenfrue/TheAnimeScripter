@@ -1,4 +1,5 @@
 from pathlib import Path
+from textwrap import dedent
 from typing import Self, override
 
 from applib import (
@@ -8,6 +9,7 @@ from applib import (
     Flags,
     GenericConverter,
     GUIMessage,
+    NumberOption,
     Option,
     TextEditOption,
     UIGroups,
@@ -16,7 +18,7 @@ from applib import (
 from src.module.config.tas_args import TASArgs
 
 
-# Olive settings defined at: https://microsoft.github.io/Olive/reference/options.html#input-model-information
+# Olive settings from: https://microsoft.github.io/Olive/reference/options.html#input-model-information
 class OliveTemplate(BaseTemplate):
     _instance = None
 
@@ -57,11 +59,11 @@ class OliveTemplate(BaseTemplate):
                             "QNNModel",
                         ],
                         [
-                            "Pytorch Model",
-                            "ONNX Model",
-                            "OpenVINO Model",
-                            "TensorFlow Model",
-                            "QNN Model",
+                            "Pytorch",
+                            "ONNX",
+                            "OpenVINO",
+                            "TensorFlow",
+                            "QNN",
                         ],
                     ),
                     ui_group_parent=[UIGroups.DISABLE_CHILDREN],
@@ -92,11 +94,12 @@ class OliveTemplate(BaseTemplate):
                     ),
                 ),
                 "io_config": {
-                    "input_names": Option(type=list[str]),
-                    "input_types": Option(type=list[str]),
-                    "input_shapes": Option(type=list[list[int]]),
-                    "output_names": Option(type=list[str]),
+                    "input_names": Option(default=[], type=list[str]),
+                    "input_types": Option(default=[], type=list[str]),
+                    "input_shapes": Option(default=[], type=list[list[int]]),
+                    "output_names": Option(default=[], type=list[str]),
                     "dynamic_axes": Option(
+                        default={},
                         type=dict[str, dict[str, str]],
                     ),
                 },
@@ -132,11 +135,177 @@ class OliveTemplate(BaseTemplate):
             # },
             "passes": {
                 "enabled_passes": {
+                    "to_onnx": Option(
+                        default=True,
+                        ui_info=GUIMessage(
+                            "Convert the model to ONNX",
+                            "This allows for aggressive model optimizations",
+                        ),
+                    ),
                     "peephole": Option(
                         default=True,
                         ui_info=GUIMessage(
-                            "Optimize ONNX model by fusing nodes",
+                            "Optimize a ONNX model by fusing nodes",
                             "Runs a combination of onnxscript optimizer, onnxoptimizer, reshape fusion, and cast chain elimination",
+                        ),
+                    ),
+                },
+                "onnx_conversion": {
+                    "type": Option(
+                        default="OnnxConversion",
+                        flags=[Flags.HIDE_IN_CLI, Flags.HIDE_IN_GUI],
+                    ),
+                    "user_script": Option(
+                        default=None,
+                        type=Path | str,
+                        ui_info=GUIMessage(
+                            "Path to user script",
+                            "The values for other parameters which were assigned function or object names will be imported from this script.",
+                        ),
+                    ),
+                    "script_dir": Option(
+                        default=None,
+                        type=Path | str,
+                        ui_info=GUIMessage(
+                            "Directory containing user script dependencies"
+                        ),
+                    ),
+                    "save_as_external_data": Option(
+                        default=False,
+                        ui_info=GUIMessage(
+                            "Serializes tensor data to separate files instead of directly in the ONNX file",
+                            "Large models (>2GB) may be forced to save external data regardless of the value of this parameter",
+                        ),
+                    ),
+                    "all_tensors_to_one_file": Option(
+                        default=True,
+                        ui_info=GUIMessage(
+                            dedent(
+                                """
+                                Effective only if save_as_external_data is True. 
+                                If true, save all tensors to one external file specified by "external_data_name". 
+                                If false, save each tensor to a file named with the tensor name.
+                                """
+                            )
+                        ),
+                    ),
+                    "external_data_name": Option(
+                        default=None,
+                        type=str,
+                        ui_info=GUIMessage(
+                            dedent(
+                                """
+                                Effective only if all_tensors_to_one_file is True and save_as_external_data is True. 
+                                If not specified, the external data file will be named with <model_path_name>.data
+                                """
+                            )
+                        ),
+                    ),
+                    "size_threshold": NumberOption(
+                        default=1024,
+                        min=0,
+                        ui_info=GUIMessage(
+                            "Effective only if save_as_external_data is True. Threshold for size of data.",
+                            dedent(
+                                """
+                                Only when tensor's data is >= the size_threshold it will be converted to external data. 
+                                To convert every tensor with raw data to external data set size_threshold=0
+                                """
+                            ),
+                        ),
+                    ),
+                    "convert_attribute": Option(
+                        default=False,
+                        ui_info=GUIMessage(
+                            dedent(
+                                """
+                                Effective only if save_as_external_data is True. 
+                                If true, convert all tensors to external data. 
+                                If false, convert only non-attribute tensors to external data
+                                """
+                            )
+                        ),
+                    ),
+                    "target_opset": NumberOption(
+                        default=20,
+                        min=1,
+                        ui_info=GUIMessage(
+                            "The version of the default (ai.onnx) opset to target"
+                        ),
+                    ),
+                    "use_dynamo_exporter": Option(
+                        default=False,
+                        ui_info=GUIMessage(
+                            "Whether to use dynamo_export API to export ONNX model."
+                        ),
+                    ),
+                    "past_key_value_name": TextEditOption(
+                        default="past_key_values",
+                        ui_info=GUIMessage(
+                            "The arguments name to point to past key values",
+                            dedent(
+                                """
+                                For model loaded from huggingface, it is 'past_key_values'. 
+                                Basically, it is used only when use_dynamo_exporter is True.
+                                """
+                            ),
+                        ),
+                    ),
+                    "device": TextEditOption(
+                        default="cuda",
+                        ui_info=GUIMessage(
+                            "The device to use for model conversion",
+                            'If not specified, will use "cpu" for PyTorch model and "cuda" for DistributedHfModel',
+                        ),
+                    ),
+                    "dtype": ComboBoxOption(
+                        default=None,
+                        values=["float32", "float16", "bfloat16"],
+                        ui_info=GUIMessage(
+                            "The dtype to cast the model to before conversion",
+                            "If not specified, will use the model as is",
+                        ),
+                    ),
+                    "parallel_jobs": Option(
+                        default=None,
+                        min=0,
+                        type=int,
+                        ui_info=GUIMessage(
+                            "Number of parallel jobs",
+                            "Defaulted to number of CPUs. Set it to 0 to disable",
+                        ),
+                    ),
+                    "merge_adapter_weights": Option(
+                        default=False,
+                        ui_info=GUIMessage(
+                            "Whether to merge adapter weights before conversion",
+                            dedent(
+                                """
+                                After merging, the model structure is consistent with base model. 
+                                That is useful if you cannot run conversion for some fine-tuned models 
+                                with adapter weights
+                                """
+                            ),
+                        ),
+                    ),
+                    "save_metadata_for_token_generation": Option(
+                        default=False,
+                        ui_info=GUIMessage(
+                            "Whether to save metadata for token generation",
+                            "Includes config.json, generation_config.json, and tokenizer related files",
+                        ),
+                    ),
+                    "optimize": Option(
+                        default=True,
+                        ui_info=GUIMessage(
+                            "Whether to optimize the model by exporting with constant folding and redundancies elimination"
+                        ),
+                    ),
+                    "dynamic": Option(
+                        default=True,
+                        ui_info=GUIMessage(
+                            "Whether to export the model with dynamic axes/shapes",
+                            "Do not change this setting unless you know what you're doing",
                         ),
                     ),
                 },
