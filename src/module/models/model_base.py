@@ -10,17 +10,14 @@ from applib import LoggingManager
 from torch import Tensor
 from torch.types import Device
 
+from module.models.tensor_proto_map import TensorProtoMap
 from src.module.config.io_binding_config import IOBindingConfig
 from src.module.config.olive_config import OliveConfig
 from src.module.config.tas_config import TASConfig
 
 
 class ModelBase:
-    """Base class for all models"""
-
-    def __init__(
-        self,
-    ) -> None:
+    def __init__(self) -> None:
         self.logger = LoggingManager()
         self.tas_config = TASConfig()
 
@@ -281,6 +278,7 @@ class ModelBase:
         is_output = False
         input_configs = []
         output_configs = []
+        proto_map = TensorProtoMap()
         for d in [inputs, None, outputs]:
             if d is None:
                 is_output = True
@@ -291,9 +289,7 @@ class ModelBase:
                     "name": name,
                     "device_type": tensor.device.type,
                     "device_id": tensor.device.index,
-                    "element_type": self.tas_config[
-                        "precision"
-                    ],  # TODO: Use precision of the tensor, BUT it must be onnx TensorProto!
+                    "element_type": proto_map.get_proto(tensor.dtype),
                     "shape": tuple(tensor.shape),
                     "buffer_ptr": tensor.data_ptr(),
                 }
@@ -310,6 +306,9 @@ class ModelBase:
         self, dtype: torch.dtype, device: Device
     ) -> tuple[dict[str, Tensor], dict[str, Tensor]]:
         """Returns the input/output tensors which should be used by the model during inference.
+
+        To make it easier to define, use a subclass of `ModelTensorsBase`, as defined
+        in `self.get_tensor_constructor`.
 
         Parameters
         ----------
