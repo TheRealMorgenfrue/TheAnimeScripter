@@ -15,8 +15,8 @@ class VFIModelTensors(ModelTensorsBase):
         self,
         width: int,
         height: int,
-        multiplier: int = 32,
-        channels: int = 8,
+        multiplier: int,
+        channels: int,
     ) -> None:
         super().__init__()
         self.width = width
@@ -90,7 +90,8 @@ class VFIModelTensors(ModelTensorsBase):
             self.output_names[0]: {"1": "height", "2": "width"},
         }
 
-    def compute_resolution_padding(self, frame_axis: int, multiplier: int) -> int:
+    @staticmethod
+    def compute_resolution_padding(frame_axis: int, multiplier: int) -> int:
         """Returns the frame size, e.g., height, with padding.
 
         Parameters
