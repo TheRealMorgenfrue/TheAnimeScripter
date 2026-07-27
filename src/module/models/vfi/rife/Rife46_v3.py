@@ -1,13 +1,14 @@
-import math
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import Tensor
 
 from .util.warplayer_v2 import warp
 
 
-def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
+def conv(
+    in_planes: int, out_planes: int, kernel_size=3, stride=1, padding=1, dilation=1
+):
     return nn.Sequential(
         nn.Conv2d(
             in_planes,
@@ -23,10 +24,12 @@ def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
 
 
 class ResConv(nn.Module):
-    def __init__(self, c, dilation=1):
+    def __init__(self, c: int, dilation=1):
         super().__init__()
         self.conv = nn.Conv2d(c, c, 3, 1, dilation, dilation=dilation, groups=1)
-        self.beta = nn.Parameter(torch.ones((1, c, 1, 1)), requires_grad=True)
+        self.beta = nn.Parameter(
+            torch.ones((1, c, 1, 1)), requires_grad=True
+        )  # REVIEW: Should this be grad?
         self.relu = nn.LeakyReLU(0.2, True)
 
     def forward(self, x):
@@ -34,7 +37,7 @@ class ResConv(nn.Module):
 
 
 class IFBlock(nn.Module):
-    def __init__(self, in_planes, c=64):
+    def __init__(self, in_planes: int, c=64):
         super().__init__()
         self.conv0 = nn.Sequential(
             conv(in_planes, c // 2, 3, 2, 1),
@@ -54,7 +57,7 @@ class IFBlock(nn.Module):
             nn.ConvTranspose2d(c, 4 * 6, 4, 2, 1), nn.PixelShuffle(2)
         )
 
-    def forward(self, x, flow=None, scale=1):
+    def forward(self, x: Tensor, flow: Tensor | None = None, scale=1):
         x = F.interpolate(x, scale_factor=1.0 / scale, mode="bilinear")
         if flow is not None:
             flow = (
@@ -72,79 +75,66 @@ class IFBlock(nn.Module):
         return flow, mask
 
 
+# multiplier=32
 class IFNet(nn.Module):
     def __init__(
         self,
-        scale=1.0,
-        ensemble=False,
-        dtype=torch.float32,
-        device="cuda",
-        width=1920,
-        height=1080,
+        width: int,
+        height: int,
+        padded_width: int,
+        padded_height: int,
+        scale: int | float = 1,
+        dtype: torch.dtype = torch.float32,
+        device: torch.types.Device = "cuda",
     ):
         super().__init__()
+        self.width = width
+        self.height = height
+        self.padded_width = padded_width
+        self.padded_height = padded_height
+        self.ensemble = ensemble
         self.block0 = IFBlock(7, c=192)
         self.block1 = IFBlock(8 + 4, c=128)
         self.block2 = IFBlock(8 + 4, c=96)
         self.block3 = IFBlock(8 + 4, c=64)
         self.scaleList = [8 / scale, 4 / scale, 2 / scale, 1 / scale]
-        self.ensemble = ensemble
-        self.dtype = dtype
-        self.device = device
-        self.width = width
-        self.height = height
         self.blocks = [self.block0, self.block1, self.block2, self.block3]
-
-        self.dtype = (
-            torch.float16 if self.half else torch.float32
-        )  # FIXME: This shouldn't be handled here. It is handled before the model is constructed, in VFIBase or equivalent.
-        tmp = max(32, int(32 / 1.0))  # FIXME: This shouldn't be handled here
-        self.pw = (
-            math.ceil(self.width / tmp) * tmp
-        )  # FIXME: This shouldn't be handled here
-        self.ph = (
-            math.ceil(self.height / tmp) * tmp
-        )  # FIXME: This shouldn't be handled here
-        self.padding = (
-            0,
-            self.pw - self.width,
-            0,
-            self.ph - self.height,
-        )  # FIXME: This shouldn't be handled here
-        self.tenFlow = torch.tensor(
-            [(self.pw - 1.0) / 2.0, (self.ph - 1.0) / 2.0],
-            dtype=self.dtype,
-            device=self.device,
+        self.ten_flow = torch.tensor(
+            [(self.padded_width - 1.0) / 2.0, (self.padded_height - 1.0) / 2.0],
+            dtype=dtype,
+            device=device,
         )
-        tenHorizontal = (
-            torch.linspace(-1.0, 1.0, self.pw, dtype=self.dtype, device=self.device)
-            .view(1, 1, 1, self.pw)
-            .expand(-1, -1, self.ph, -1)
-        ).to(dtype=self.dtype, device=self.device)
-        tenVertical = (
-            torch.linspace(-1.0, 1.0, self.ph, dtype=self.dtype, device=self.device)
-            .view(1, 1, self.ph, 1)
-            .expand(-1, -1, -1, self.pw)
-        ).to(dtype=self.dtype, device=self.device)
-        self.backWarp = torch.cat([tenHorizontal, tenVertical], 1)
+        ten_horizontal = (
+            torch.linspace(-1.0, 1.0, self.padded_width, dtype=dtype, device=device)
+            .view(1, 1, 1, self.padded_width)
+            .expand(-1, -1, self.padded_height, -1)
+        ).to(dtype=dtype, device=device)
+        ten_vertical = (
+            torch.linspace(-1.0, 1.0, self.padded_height, dtype=dtype, device=device)
+            .view(1, 1, self.padded_height, 1)
+            .expand(-1, -1, -1, self.padded_width)
+        ).to(dtype=dtype, device=device)
+        self.back_warp = torch.cat([ten_horizontal, ten_vertical], 1)
 
-    def forward(self, img0, img1, timeStep):
-        warpedImg0, warpedImg1 = img0, img1
-        flow = mask = None
+    def forward(self, img0: Tensor, img1: Tensor, timestep: Tensor):
+        warped_img0 = img0
+        warped_img1 = img1
+        flow = None
+        mask = None
 
         for i, block in enumerate(self.blocks):
             scale = self.scaleList[i]
 
             if flow is None:
                 flow, mask = block(
-                    torch.cat((img0[:, :3], img1[:, :3], timeStep), 1),
+                    torch.cat((img0[:, :3], img1[:, :3], timestep), 1),
                     None,
                     scale=scale,
                 )
 
                 if self.ensemble:
                     f1, m1 = block(
-                        torch.cat((img1[:, :3], img0[:, :3], 1 - timeStep), 1),
+                        torch.cat((img1[:, :3], img0[:, :3], 1 - timestep), 1),
                         None,
                         scale=scale,
                     )
@@ -153,7 +143,7 @@ class IFNet(nn.Module):
             else:
                 f0, m0 = block(
                     torch.cat(
-                        (warpedImg0[:, :3], warpedImg1[:, :3], timeStep, mask), 1
+                        (warped_img0[:, :3], warped_img1[:, :3], timestep, mask), 1
                     ),
                     flow,
                     scale=scale,
@@ -162,7 +152,12 @@ class IFNet(nn.Module):
                 if self.ensemble:
                     f1, m1 = block(
                         torch.cat(
-                            (warpedImg1[:, :3], warpedImg0[:, :3], 1 - timeStep, -mask),  # type: ignore
+                            (
+                                warped_img1[:, :3],
+                                warped_img0[:, :3],
+                                1 - timestep,
+                                -mask,
+                            ),  # type: ignore
                             1,
                         ),
                         torch.cat((flow[:, 2:4], flow[:, :2]), 1),
@@ -174,10 +169,10 @@ class IFNet(nn.Module):
                 flow = flow + f0
                 mask = mask + m0
 
-            warpedImg0 = warp(img0, flow[:, :2], self.tenFlow, self.backWarp)
-            warpedImg1 = warp(img1, flow[:, 2:4], self.tenFlow, self.backWarp)
+            warped_img0 = warp(img0, flow[:, :2], self.ten_flow, self.back_warp)
+            warped_img1 = warp(img1, flow[:, 2:4], self.ten_flow, self.back_warp)
 
         temp = torch.sigmoid(mask)  # type: ignore
-        return (warpedImg0 * temp + warpedImg1 * (1 - temp))[
+        return (warped_img0 * temp + warped_img1 * (1 - temp))[
             :, :, : self.height, : self.width
         ]
