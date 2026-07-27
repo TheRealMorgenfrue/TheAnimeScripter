@@ -75,20 +75,20 @@ def get_video_metadata(input_path: str) -> InputMetadataConfig:
     out_point = config["outpoint"]
 
     metadata = {
-        "Width": width,
-        "Height": height,
-        "AspectRatio": round(width / height, 2),
-        "FPS": round(fps, 2),
-        "Codec": video_stream["codec_name"],
-        "PixelFormat": video_stream.get("pix_fmt", "unknown"),
-        "ColorSpace": video_stream.get("color_space", "unknown"),
-        "ColorPrimaries": video_stream.get("color_primaries", "unknown"),
-        "ColorTransfer": video_stream.get("color_transfer", "unknown"),
-        "ColorRange": video_stream.get("color_range", "unknown"),
-        "Duration": float(probe_data["format"]["duration"]),
-        "TotalFrames": total_frames,
-        "TotalFramesToProcess": int((out_point - config["inpoint"]) * fps)
+        "width": width,
+        "height": height,
+        "aspect_ratio": round(width / height, 2),
+        "fps": round(fps, 2),
+        "codec": video_stream["codec_name"],
+        "pixel_format": video_stream.get("pix_fmt", "unknown"),
+        "color_space": video_stream.get("color_space", "unknown"),
+        "color_primaries": video_stream.get("color_primaries", "unknown"),
+        "color_transfer": video_stream.get("color_transfer", "unknown"),
+        "color_range": video_stream.get("color_range", "unknown"),
+        "duration": float(probe_data["format"]["duration"]),
+        "total_frames": total_frames,
+        "total_frames_to_process": int((out_point - config["inpoint"]) * fps)
         if out_point
         else total_frames,
     }
-    return InputMetadataConfig(metadata)
+    return InputMetadataConfig({"Video": metadata})
