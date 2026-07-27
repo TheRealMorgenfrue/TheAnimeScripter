@@ -7,29 +7,39 @@ import torch.nn.functional as F
 from torch import Tensor
 from torch.types import Device
 
+from module.models.tensor_proto_map import TensorProtoMap
 from src.module.models.model_base import ModelBase
 from src.module.models.vfi.vfi_tensors_base import VFIModelTensors
 
 
 class VFIModelBase(ModelBase):
-    """Base class for VFI models"""
-
     def __init__(
         self,
         model_path: Path,
-        width: int,
-        height: int,
         vfi_factor: float | int,
-        multiplier: int = 32,
-        channels: int = 8,
-        dtype: torch.dtype = torch.float32,
+        tensors: VFIModelTensors,
+        dtype: torch.dtype,
     ) -> None:
+        """Base class for VFI models.
+
+        Parameters
+        ----------
+        model_path : Path
+            The location of the model to initialize.
+        vfi_factor : float | int
+            Interpolation factor.
+            For instance, 2 would result in: 24 FPS -> 48 FPS.
+        tensors : VFIModelTensors
+            The tensors used by the model.
+        dtype : torch.dtype
+            The precision of the input tensors.
+        """
         super().__init__()
+        self._frame_counter = 0
         self.vfi_factor = vfi_factor
-        self.frame_counter = 0
         self.warmup = True
         self.run_options = {"disable_synchronize_execution_providers": "1"}
-        self.tensors = VFIModelTensors(width, height, multiplier, channels)
+        self.tensors = tensors
 
         if isinstance(self.vfi_factor, float):
             factor = Fraction(self.vfi_factor).limit_denominator(100)
@@ -39,7 +49,10 @@ class VFIModelBase(ModelBase):
         self.prepare_model(
             model_path=model_path,
             input_names=self.tensors.input_names,
-            input_types=[f"{dtype}" for _ in range(len(self.tensors.input_names))],
+            input_types=[
+                TensorProtoMap().get_torch_str(dtype)
+                for _ in range(len(self.tensors.input_names))
+            ],
             input_shapes=self.tensors.input_shapes,
             output_names=self.tensors.output_names,
             dynamic_axes=self.tensors.get_dynamic_axes(),
@@ -66,7 +79,7 @@ class VFIModelBase(ModelBase):
         """
         # TODO: This function can be computed ahead-of-time, on the GPU
         if isinstance(self.vfi_factor, float):
-            current_index = self.frame_counter
+            current_index = self._frame_counter
             next_index = current_index + 1
 
             output_start = (
@@ -76,7 +89,7 @@ class VFIModelBase(ModelBase):
                 next_index * self.vfi_factor_numerator
             ) // self.vfi_factor_denominator
 
-            self.frame_counter += 1
+            self._frame_counter += 1
             return [
                 (
                     output_start
