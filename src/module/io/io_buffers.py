@@ -80,7 +80,7 @@ class ReadBuffer:
         self.width = width
         self.height = height
         self.decode_method: str = self._config["decode_method"]
-        self.precision: str = self._config["precision"]
+        self.precision: torch.dtype = self._config["precision"]
         self.bit_depth: str = self._config["bit_depth"]
         self.inpoint: float = self._config["inpoint"]
         self.outpoint: float = self._config["outpoint"]
@@ -234,14 +234,14 @@ class ReadBuffer:
                 frame = frame.to(
                     device=self.device_type,
                     non_blocking=norm_stream is not None,
-                    dtype=torch.float16 if self.precision else torch.float32,
+                    dtype=self.precision,
                     memory_format=torch.channels_last,  # NHWC, more efficient on Tensor Cores https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html#prefer_nhwc
                 )
             else:
                 frame = frame.to(
                     device=self.device_type,
                     non_blocking=norm_stream is not None,
-                    dtype=torch.float16 if self.precision else torch.float32,
+                    dtype=self.precision,
                 )
 
                 norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
