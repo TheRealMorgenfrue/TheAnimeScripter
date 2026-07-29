@@ -84,9 +84,9 @@ class IFNet(nn.Module):
         height: int,
         padded_width: int,
         padded_height: int,
-        scale: int | float = 1,
-        dtype: torch.dtype = torch.float32,
-        device: torch.types.Device = "cuda",
+        scale: int | float,
+        dtype: torch.dtype,
+        device: torch.types.Device,
     ):
         super().__init__()
         self.width = width
