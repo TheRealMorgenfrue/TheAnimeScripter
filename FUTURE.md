@@ -62,6 +62,15 @@ Help
 
 - https://onnxruntime.ai/docs/api/python/tutorial.html
 
+### Fuse models together
+
+When the user has selected models and their execution order, fuse them together in one ONNX model to reduce overhead from e.g. Python.
+
+This could also simplify model handler code at the cost of having to standardize arguments to all models' \_\_init\_\_() and forward() functions.
+
+- https://onnx.ai/onnx/api/compose.html#merge-models
+- https://microsoft.github.io/Olive/reference/pass.html#composeonnxmodels
+
 ### Hardware-specific auto-tune
 
 An option to run a test render of some input to automatically determine the optimal parameteres for the user's hardware configuration.
