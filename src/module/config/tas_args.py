@@ -48,7 +48,7 @@ class TASArgs:
     ## Input metadata template
     input_metadata_template_name = "input_metadata_template"
 
-    ## ONNX Execution Providers
+    ## ONNX Execution Provider templates
     cuda_ep_template_name = "cuda_ep_template"
     trt_ep_template_name = "trt_ep_template"
     migraphx_ep_template_name = "migraphx_ep_template"
@@ -56,6 +56,12 @@ class TASArgs:
 
     ## ONNX IO bindings template
     io_binding_template_name = "onnx_io_binding_template"
+
+    ## ONNX Session Options template
+    onnx_session_options_template_name = "onnx_session_options_template"
+
+    ## ONNX Run Options template
+    onnx_run_options_template_name = "onnx_run_options_template"
 
     ## Olive template
     olive_template_name = "olive_template"
@@ -68,10 +74,40 @@ class TASArgs:
     main_config_file = f"{main_config_name.replace(' ', '_').lower()}_config.toml"
     main_config_path = Path(config_dir, main_config_file)
 
-    ## Olive Config
+    ## Olive config
     olive_config_name = "Olive"
     olive_config_file = f"{olive_config_name.replace(' ', '_').lower()}_config.toml"
     olive_config_path = Path(config_dir, olive_config_file)
+
+    ## ONNX Execution Provider configs
+    cuda_ep_config_name = "CUDA"
+    cuda_ep_config_file = f"{cuda_ep_config_name}_config.toml"
+    cuda_ep_config_path = Path(config_dir, cuda_ep_config_file)
+    trt_ep_config_name = "TensorRT"
+    trt_ep_config_file = f"{trt_ep_config_name}_config.toml"
+    trt_ep_config_path = Path(config_dir, trt_ep_config_file)
+    migraphx_ep_config_name = "MIGraphX"
+    migraphx_ep_config_file = f"{migraphx_ep_config_name}_config.toml"
+    migraphx_ep_config_path = Path(config_dir, migraphx_ep_config_file)
+    openvino_ep_config_name = "OpenVINO"
+    openvino_ep_config_file = f"{openvino_ep_config_name}_config.toml"
+    openvino_ep_config_path = Path(config_dir, openvino_ep_config_file)
+
+    ## ONNX Session Options config
+    onnx_session_options_config_name = "ONNX Session"
+    onnx_session_options_config_file = (
+        f"{onnx_session_options_config_name.replace(' ', '_').lower()}_config.toml"
+    )
+    onnx_session_options_config_path = Path(
+        config_dir, onnx_session_options_config_file
+    )
+
+    ## ONNX Run Options config
+    onnx_run_options_config_name = "ONNX Run"
+    onnx_run_options_config_file = (
+        f"{onnx_run_options_config_name.replace(' ', '_').lower()}_config.toml"
+    )
+    onnx_run_options_config_path = Path(config_dir, onnx_run_options_config_file)
 
     # ┌────────────────────────────┐
     # │ Override AppLib attributes │
