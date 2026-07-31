@@ -10,7 +10,6 @@ from applib import (
     TextEditOption,
 )
 from onnx import TensorProto
-from torch import Size
 
 from src.module.config.tas_args import TASArgs
 
@@ -51,7 +50,7 @@ class IOBindingTemplate(BaseTemplate):
                     "BF16": TensorProto.BFLOAT16,
                 },
             ),
-            "shape": Option(default=None, type=tuple[Size]),
+            "shape": Option(default=None, type=tuple[int, ...]),
             "buffer_ptr": Option(
                 default=None, flags=[Flags.HIDE_IN_CLI, Flags.HIDE_IN_GUI], type=int
             ),
