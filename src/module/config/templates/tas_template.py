@@ -1,11 +1,10 @@
 import os
 from pathlib import Path
 from shutil import which
+from textwrap import dedent
 from typing import Self, override
 
-import torch
 from applib import (
-    AutoTextWrap,
     BaseTemplate,
     CheckListOption,
     ColorPickerOption,
@@ -198,26 +197,27 @@ class TASTemplate(BaseTemplate):
                         '"nvdec" requires an NVIDIA GPU with NVDEC support',
                     ),
                 ),
-                "auto_tune": Option(
+                "autotune": Option(
                     default=True,
                     ui_info=GUIMessage(
                         "Employ automatic model optimization tailored to your hardware",
                         "It may take a while to process",
                     ),
                 ),
-                "precision": ComboBoxOption(  # TODO: Make it used generally or remove it. Currently only used to set precision of input data
-                    default="BF16",
+                "precision": ComboBoxOption(
+                    default="float32",
                     values={
-                        "FP32": torch.float32,
-                        "FP16": torch.float16,
-                        "BF16": torch.bfloat16,
+                        "F32": "float32",
+                        "F16": "float16",
+                        "BF16": "bfloat16",
                     },
                     ui_info=GUIMessage(
                         "Precision of inference",
-                        AutoTextWrap.text_format(
-                            """
-                            Lower precision is significantly faster than higher precision, while potentially reducing quality. 
+                        dedent(
+                            """Lower precision is significantly faster than higher precision, while potentially reducing quality. 
                             Please test the result of using lower precisions before processing large videos.
+                            
+                            Note that BF16 computations are supported on Ampere or newer GPU architectures (i.e. compute capability >= 8.0).
                             """
                         ),
                     ),
@@ -333,7 +333,15 @@ class TASTemplate(BaseTemplate):
                         ]
                     ),
                     ui_group="g_vfi",
-                    ui_info=GUIMessage("Interpolation method"),
+                    ui_info=GUIMessage("Use a pre-installed VFI model"),
+                ),
+                "custom_vfi_model": FileSelectorOption(
+                    default="",
+                    ui_file_filter="ONNX (*.onnx)",
+                    ui_info=GUIMessage(
+                        "Path to a custom VFI model",
+                        "Takes priority over the selected pre-installed model",
+                    ),
                 ),
                 "slowmo": Option(
                     default=False,
@@ -346,6 +354,14 @@ class TASTemplate(BaseTemplate):
                     default=False,
                     ui_group="g_vfi",
                     ui_info=GUIMessage("Use the ensemble model for interpolation"),
+                ),
+                "vfi_scale": ComboBoxOption(
+                    default=1,
+                    values=[0.25, 0.5, 1, 2],
+                    ui_group="g_vfi",
+                    ui_info=GUIMessage(
+                        "Scale the input by this factor before interpolation"
+                    ),
                 ),
                 "dynamic_scale": Option(
                     default=False,
