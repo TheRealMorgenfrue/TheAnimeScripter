@@ -1,8 +1,9 @@
 from abc import abstractmethod
+from collections.abc import Sequence
 
 import torch
 from torch import Tensor
-from torch.types import Device
+from torch.types import Device, Number
 
 
 class ModelTensorsBase:
@@ -12,10 +13,12 @@ class ModelTensorsBase:
         self,
         input_names: list[str],
         input_types: list[torch.dtype] | torch.dtype,
+        input_fill_values: Sequence[Number],
         input_shapes: list[list[int]],
         input_devices: list[Device] | Device,
         output_names: list[str],
         output_types: list[torch.dtype] | torch.dtype,
+        output_fill_values: Sequence[Number],
         output_shapes: list[list[int]],
         output_devices: list[Device] | Device,
     ) -> tuple[dict[str, Tensor], dict[str, Tensor]]:
@@ -33,6 +36,8 @@ class ModelTensorsBase:
             Here, `input_names` would be: `["img0", "img1", "timestep", "f0"]`.
         input_types : list[torch.dtype] | torch.dtype
             The data types of the tensors defined by `input_names`.
+        input_fill_values : list[torch.Number]
+            The values to fill each input tensor with.
         input_shapes : list[list[int]]
             The shapes of the tensors defined by `input_names`.
         input_devices : list[Device] | Device
@@ -49,6 +54,8 @@ class ModelTensorsBase:
             Here, `output_names` would be: `["output", "f1"]`.
         output_types : list[torch.dtype] | torch.dtype
             The data types of the tensors defined by `output_names`.
+        output_fill_values : list[torch.Number]
+            The values to fill each output tensor with.
         output_shapes : list[list[int]]
             The shapes of the tensors defined by `output_names`.
         output_devices : list[Device] | Device
@@ -66,21 +73,35 @@ class ModelTensorsBase:
         if not isinstance(input_devices, list):
             input_devices = [input_devices for _ in range(len(input_names))]
         if not isinstance(output_types, list):
-            output_types = [output_types for _ in range(len(input_names))]
+            output_types = [output_types for _ in range(len(output_names))]
         if not isinstance(output_devices, list):
-            output_devices = [output_devices for _ in range(len(input_names))]
+            output_devices = [output_devices for _ in range(len(output_names))]
 
         input_tensors: dict[str, Tensor] = {}
-        for iname, itype, ishape, idevice in zip(
-            input_names, input_types, input_shapes, input_devices, strict=True
+        for iname, itype, ivalue, ishape, idevice in zip(
+            input_names,
+            input_types,
+            input_fill_values,
+            input_shapes,
+            input_devices,
+            strict=True,
         ):
-            input_tensors[iname] = torch.zeros(ishape, dtype=itype, device=idevice)
+            input_tensors[iname] = torch.full(
+                ishape, fill_value=ivalue, dtype=itype, device=idevice
+            ).contiguous()
 
         output_tensors: dict[str, Tensor] = {}
-        for oname, otype, oshape, odevice in zip(
-            output_names, output_types, output_shapes, output_devices, strict=True
+        for oname, otype, ovalue, oshape, odevice in zip(
+            output_names,
+            output_types,
+            output_fill_values,
+            output_shapes,
+            output_devices,
+            strict=True,
         ):
-            output_tensors[oname] = torch.zeros(oshape, dtype=otype, device=odevice)
+            output_tensors[oname] = torch.full(
+                oshape, fill_value=ovalue, dtype=otype, device=odevice
+            ).contiguous()
 
         return (input_tensors, output_tensors)
 
