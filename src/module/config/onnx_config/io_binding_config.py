@@ -5,7 +5,7 @@ from src.module.config.templates.onnx.io_binding_template import IOBindingTempla
 
 class IOBindingConfig(ConfigBase):
     def __init__(self, config_name: str, data: dict) -> None:
-        """Creates an instance of a ONNX IO binding
+        """ONNX IO binding.
 
         NOTE: This config does not follow the singleton pattern!
         """
