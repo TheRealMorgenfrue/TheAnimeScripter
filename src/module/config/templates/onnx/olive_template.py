@@ -102,10 +102,31 @@ class OliveTemplate(BaseTemplate):
                         default={},
                         type=dict[str, dict[str, str]],
                     ),
+                    "dynamic_shapes": Option(
+                        default={},
+                        type=dict[str, dict[str, str]],
+                    ),
                 },
             },
-            "systems": {"local_system": {"type": "LocalSystem"}},
-            "evaluators": "common_evaluator",
+            "systems": {
+                "local_system": {
+                    "type": Option(
+                        default="LocalSystem",
+                        flags=[Flags.HIDE_IN_CLI, Flags.HIDE_IN_GUI],
+                    ),
+                    "accelerators": Option(
+                        default=[
+                            {
+                                "device": "gpu",
+                                "execution_providers": [
+                                    "CUDAExecutionProvider",
+                                ],
+                            },
+                        ]
+                    ),
+                }
+            },
+            # "evaluators": "common_evaluator",
             # {
             # "common_evaluator": {
             #     "metrics": [
@@ -143,7 +164,7 @@ class OliveTemplate(BaseTemplate):
                         ),
                     ),
                     "peephole": Option(
-                        default=True,
+                        default=False,
                         ui_info=GUIMessage(
                             "Optimize a ONNX model by fusing nodes",
                             "Runs a combination of onnxscript optimizer, onnxoptimizer, reshape fusion, and cast chain elimination",
@@ -227,16 +248,17 @@ class OliveTemplate(BaseTemplate):
                         ),
                     ),
                     "target_opset": NumberOption(
-                        default=20,
-                        min=1,
+                        default=25,
+                        min=8,
                         ui_info=GUIMessage(
-                            "The version of the default (ai.onnx) opset to target"
+                            "The version of the default ONNX opset to target",
+                            "Valid values are 8-28 at the time of writing",
                         ),
                     ),
                     "use_dynamo_exporter": Option(
-                        default=False,
+                        default=True,
                         ui_info=GUIMessage(
-                            "Whether to use dynamo_export API to export ONNX model."
+                            "Whether to use the Torch Dynamo API to export ONNX model."
                         ),
                     ),
                     "past_key_value_name": TextEditOption(
@@ -258,13 +280,15 @@ class OliveTemplate(BaseTemplate):
                             'If not specified, will use "cpu" for PyTorch model and "cuda" for DistributedHfModel',
                         ),
                     ),
-                    "dtype": ComboBoxOption(
+                    "torch_dtype": ComboBoxOption(  # Defined in TAS config, thus we hide this setting
                         default=None,
+                        flags=[Flags.HIDE_IN_CLI, Flags.HIDE_IN_GUI],
                         values=["float32", "float16", "bfloat16"],
                         ui_info=GUIMessage(
                             "The dtype to cast the model to before conversion",
                             "If not specified, will use the model as is",
                         ),
+                        type=str,
                     ),
                     "parallel_jobs": Option(
                         default=None,
@@ -375,12 +399,22 @@ class OliveTemplate(BaseTemplate):
                 #         ),
                 #     ),
                 # },
-                "host": "local_system",
-                "target": "local_system",
+                "host": Option(
+                    default="local_system", flags=[Flags.HIDE_IN_CLI, Flags.HIDE_IN_GUI]
+                ),
+                "target": Option(
+                    default="local_system", flags=[Flags.HIDE_IN_CLI, Flags.HIDE_IN_GUI]
+                ),
                 "cache_dir": FileSelectorOption(
                     default=f"{Path(TASArgs.app_dir, 'olive_cache')}",
                     ui_show_dir_only=True,
                     ui_info=GUIMessage("Folder to store cache data in"),
+                ),
+                "clean_cache": Option(
+                    default=False,
+                    ui_info=GUIMessage(
+                        "Clean the cache of the engine before running the engine"
+                    ),
                 ),
                 "output_dir": FileSelectorOption(
                     default=f"{Path(TASArgs.app_dir, 'olive_model_optim')}"
