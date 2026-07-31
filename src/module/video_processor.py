@@ -101,13 +101,17 @@ class VideoProcessor:
         """
         Process a single video frame through the configured enhancement pipeline.
         """
+        self.current_frame_buffer.put_nowait(frame)
         next_frame = self.read_buffer.peek() if self.should_get_next_frame else None
         for process in self.process_list:
             for _ in range(len(self.current_frame_buffer.queue)):
                 try:
                     current_frame = self.current_frame_buffer.get_nowait()
                 except queue.Empty:
-                    current_frame = frame
+                    self.logger.error(
+                        "Current frame buffer is unexpectedly empty. This is very bad"
+                    )
+                    break
 
                 if self.should_get_next_frame:
                     try:
