@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch import Tensor
-from torch.nn.functional import interpolate
 
 from .util.warplayer_v2 import warp
 
@@ -59,16 +59,18 @@ class IFBlock(nn.Module):
         )
 
     def forward(self, x: Tensor, h: int, w: int, flow: Tensor | None = None, scale=1):
-        x = interpolate(x, scale_factor=1.0 / scale, mode="bilinear")
+        x = F.interpolate(x, scale_factor=1.0 / scale, mode="bilinear")
 
         if flow is not None:
-            flow = interpolate(flow, scale_factor=1.0 / scale, mode="bilinear") / scale
+            flow = (
+                F.interpolate(flow, scale_factor=1.0 / scale, mode="bilinear") / scale
+            )
             x = torch.cat((x, flow), 1)
 
         feat = self.conv0(x)
         feat = self.convblock(feat)
         tmp = self.lastconv(feat)
-        tmp = interpolate(tmp, size=(h, w), mode="bilinear")
+        tmp = F.interpolate(tmp, size=(h, w), mode="bilinear")
 
         flow = tmp[:, :4] * scale
         mask = tmp[:, 4:5]

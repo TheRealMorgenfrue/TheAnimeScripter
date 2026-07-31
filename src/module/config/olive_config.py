@@ -37,10 +37,10 @@ class OliveConfig(ConfigBase):
         output = MappingBase(deepcopy(self.get_raw()))
 
         if not self["to_onnx"]:
-            output.remove_value("onnx_conversion")
+            del output["onnx_conversion"]
         if not self["peephole"]:
-            output.remove_value("onnx_peephole_optimizer")
+            del output["onnx_peephole_optimizer"]
 
-        output.remove_value("enabled_passes")
+        del output["enabled_passes"]
 
         return output.get_raw()

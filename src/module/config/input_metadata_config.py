@@ -22,7 +22,7 @@ class InputMetadataConfig(ConfigBase):
                 template=template,
             )
             super().__init__(
-                name=template.name,
+                name="input_metadata",  # Defined here as this config is in-memory only
                 template=template,
                 validation_model=validation_model,
                 input_data=metadata,

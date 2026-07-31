@@ -20,6 +20,7 @@ from torch.nn import functional
 from src.module.config.input_metadata_config import InputMetadataConfig
 from src.module.config.tas_config import TASConfig
 from src.module.io.encoding_settings import get_pix_fmt, match_encoder
+from src.module.utils.type_mappings import TensorProtoMap
 
 from ..utils.cuda_checker import CudaChecker
 
@@ -80,7 +81,7 @@ class ReadBuffer:
         self.width = width
         self.height = height
         self.decode_method: str = self._config["decode_method"]
-        self.precision: torch.dtype = self._config["precision"]
+        self.precision = TensorProtoMap().get_torch(self._config["precision"])
         self.bit_depth: str = self._config["bit_depth"]
         self.inpoint: float = self._config["inpoint"]
         self.outpoint: float = self._config["outpoint"]
@@ -134,8 +135,8 @@ class ReadBuffer:
 
     def _decode_with_nelux(self) -> int:
         """Returns the number of frames decoded."""
-        self._logger.info(
-            f"Initializing new VideoReader for {self.input_path} ({self.decode_method})"
+        self._logger.debug(
+            f"Initializing NeLux for '{self.input_path}' ({self.decode_method})"
         )
 
         reader = nelux.VideoReader(
@@ -201,7 +202,7 @@ class ReadBuffer:
         self,
         frame: Tensor,
         norm_stream: torch.cuda.Stream | None = None,
-        to_nhwc: bool = True,
+        to_nhwc: bool = False,
     ) -> Tensor:
         """Converts a frame tensor from HWC to NCHW memory layout.
 
@@ -246,7 +247,6 @@ class ReadBuffer:
 
                 norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
                 frame = frame.permute(2, 0, 1).mul(norm).clamp(0, 1).unsqueeze(0)
-
         if norm_stream is not None:
             norm_stream.synchronize()
 
@@ -700,7 +700,7 @@ class WriteBufferFFmpeg(WriteBuffer):
                     out_frame = self._process_frame(
                         frame, multiplier, dtype, needs_resize
                     )
-                    ffmpeg_proc.stdin.write(memoryview(out_frame.numpy()))  # type: ignore
+                    ffmpeg_proc.stdin.write(memoryview(out_frame.cpu().numpy()))  # type: ignore
                     written_frames += 1
             self._logger.debug(f"Encoded {written_frames} frames")
         except Exception:

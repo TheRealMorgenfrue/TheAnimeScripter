@@ -436,4 +436,3 @@ def tensorRTEngineNameHandler(
 
     engineName = "".join(nameParts) + ".engine"
     return str(modelPath.with_suffix("")) + engineName
-    return str(modelPath.with_suffix("")) + engineName
