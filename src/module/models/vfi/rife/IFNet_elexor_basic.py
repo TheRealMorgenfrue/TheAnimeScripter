@@ -145,18 +145,18 @@ class IFNet(nn.Module):
         self.f0.copy_(self.f1, non_blocking=True)
 
     def cacheReset(self, frame):
-        self.f0 = self.encode(frame[:, :3])
+        self.f0 = self.encode(frame)
 
     def forward(self, img0, img1, timestep):
         if self.counter == self.vfi_factor:
             self.counter = 1
             if self.f0 is None:
-                self.f0 = self.encode(img0[:, :3])
-            self.f1 = self.encode(img1[:, :3])
+                self.f0 = self.encode(img0)
+            self.f1 = self.encode(img1)
         else:
             if self.f0 is None or self.f1 is None:
-                self.f0 = self.encode(img0[:, :3])
-                self.f1 = self.encode(img1[:, :3])
+                self.f0 = self.encode(img0)
+                self.f1 = self.encode(img1)
         self.counter += 1
 
         warped_img0 = img0
