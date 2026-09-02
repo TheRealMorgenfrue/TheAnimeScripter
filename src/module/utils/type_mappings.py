@@ -27,7 +27,7 @@ class TensorProtoMap:
             self._torch2str = dict(
                 zip(
                     self._torch2proto.keys(),
-                    ["float32", "float16", "bfloat16"],
+                    ["fp32", "fp16", "bf16"],
                     strict=True,
                 )
             )
