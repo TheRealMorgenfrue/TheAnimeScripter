@@ -27,11 +27,14 @@ from applib import (
     validate_theme,
 )
 
-from src.module.config.runners.actions.nelux_actions import set_nelux_log_level
-from src.module.config.runners.validators.validate_nelux import validate_nelux_loglevel
+# from src.module.config.runners.actions.nelux_actions import set_nelux_log_level
+# from src.module.config.runners.validators.validate_nelux import validate_nelux_loglevel
+from src.module.config.runners.validators.validate_devices import validate_devices
 from src.module.config.runners.validators.validate_performance import validate_precision
 from src.module.config.tas_args import TASArgs
-from src.module.utils.types.nelux import NeluxLogLevel
+from src.module.utils.hardware_checkers.hardware_checker import HardwareChecker
+
+# from src.module.utils.types.nelux import NeluxLogLevel
 
 
 class TASTemplate(BaseTemplate):
@@ -56,14 +59,14 @@ class TASTemplate(BaseTemplate):
     def _create_template(self) -> dict:
         return {
             "General": {
-                "preset": ComboBoxOption(
-                    # TODO: Implement
-                    default="",
-                    values=[""],
-                    ui_info=GUIMessage(
-                        "NOT IMPLEMENTED YET! Create and use a preset configuration file based on the current arguments"
-                    ),
-                ),
+                # "preset": ComboBoxOption(
+                #     # TODO: Implement
+                #     default="",
+                #     values=[""],
+                #     ui_info=GUIMessage(
+                #         "NOT IMPLEMENTED YET! Create and use a preset configuration file based on the current arguments"
+                #     ),
+                # ),
                 "model_dir": FileSelectorOption(
                     default=f"{Path(os.environ['TAS_PATH'], 'weights')}",
                     ui_show_dir_only=True,
@@ -79,13 +82,13 @@ class TASTemplate(BaseTemplate):
                     validators=validate_loglevel,
                     values=LoggingManager.LogLevel._member_names_,
                 ),
-                "nelux_loglevel": ComboBoxOption(
-                    default="OFF" if TASArgs.is_release else "INFO",
-                    actions=set_nelux_log_level,
-                    ui_info=GUIMessage("Set log level for NeLux"),
-                    validators=validate_nelux_loglevel,
-                    values=[level.upper() for level in NeluxLogLevel._member_names_],
-                ),
+                # "nelux_loglevel": ComboBoxOption(
+                #     default="OFF" if TASArgs.is_release else "INFO",
+                #     actions=set_nelux_log_level,
+                #     ui_info=GUIMessage("Set log level for NeLux"),
+                #     validators=validate_nelux_loglevel,
+                #     values=[level.upper() for level in NeluxLogLevel._member_names_],
+                # ),
             },
             "Appearance": {
                 "appTheme": ComboBoxOption(
@@ -218,19 +221,16 @@ class TASTemplate(BaseTemplate):
                     ),
                 ),
                 "precision": ComboBoxOption(
-                    default="float32",
+                    default="fp32",
                     values={
-                        "F32": "float32",
-                        "F16": "float16",
-                        "BF16": "bfloat16",
+                        "FP32": "fp32",
+                        "FP16": "fp16",
                     },
                     ui_info=GUIMessage(
                         "Precision of inference",
                         dedent(
                             """Lower precision is significantly faster than higher precision, while potentially reducing quality. 
                             Please test the result of using lower precisions before processing large videos.
-                            
-                            Note that BF16 computations are supported on Ampere or newer GPU architectures (i.e. compute capability >= 8.0).
                             """
                         ),
                     ),
@@ -285,9 +285,9 @@ class TASTemplate(BaseTemplate):
                             "lossless",
                             "lossless_nvenc",
                             "png",
-                            "nvenc_h264_nelux",
-                            "nvenc_h265_nelux",
-                            "nvenc_av1_nelux",
+                            # "nvenc_h264_nelux",
+                            # "nvenc_h265_nelux",
+                            # "nvenc_av1_nelux",
                         ]
                     ),
                     ui_info=GUIMessage("Encoding method"),
@@ -296,7 +296,7 @@ class TASTemplate(BaseTemplate):
                     default="", ui_info=GUIMessage("Custom encoder settings")
                 ),
                 "bit_depth": ComboBoxOption(
-                    default="8bit",
+                    default="16bit",
                     values=["8bit", "16bit"],
                     ui_info=GUIMessage("Bit depth of the raw pipe input to FFmpeg"),
                 ),
@@ -316,10 +316,9 @@ class TASTemplate(BaseTemplate):
                     ui_info=GUIMessage("Interpolation factor"),
                 ),
                 "vfi_model": ComboBoxOption(
-                    default="rife4.6",
+                    default="rife_elexor",
                     values=sorted(
                         [
-                            "rife4.6",
                             "gmfss",
                             "rife_elexor",
                         ]
@@ -330,29 +329,32 @@ class TASTemplate(BaseTemplate):
                 "custom_vfi_model": FileSelectorOption(
                     default="",
                     ui_file_filter="ONNX (*.onnx)",
+                    ui_group="g_vfi",
                     ui_info=GUIMessage(
                         "Path to a custom VFI model",
                         "Takes priority over the selected pre-installed model",
                     ),
+                    validators=validate_path,
                 ),
-                "slowmo": Option(
-                    default=False,
-                    ui_group="g_vfi",
-                    ui_info=GUIMessage(
-                        "Enable slow motion interpolation. This will slow down the video instead of increasing the frame rate"
-                    ),
-                ),
-                "ensemble": Option(
-                    default=False,
-                    ui_group="g_vfi",
-                    ui_info=GUIMessage("Use the ensemble model for interpolation"),
-                ),
+                # "slowmo": Option(
+                #     default=False,
+                #     ui_group="g_vfi",
+                #     ui_info=GUIMessage(
+                #         "Enable slow motion interpolation. This will slow down the video instead of increasing the frame rate"
+                #     ),
+                # ),
+                # "ensemble": Option(
+                #     default=False,
+                #     ui_group="g_vfi",
+                #     ui_info=GUIMessage("Use the ensemble model for interpolation"),
+                # ),
                 "vfi_scale": ComboBoxOption(
                     default=1,
                     values=[0.25, 0.5, 1, 2],
                     ui_group="g_vfi",
                     ui_info=GUIMessage(
-                        "Scale the input by this factor before interpolation"
+                        "Scale the input by this factor before interpolation",
+                        "Smaller scales are usually faster, but with increasingly higher risk of interpolation artifacts on smaller, fast moving objects",
                     ),
                 ),
                 "dynamic_scale": Option(
@@ -386,94 +388,47 @@ class TASTemplate(BaseTemplate):
                     ui_info=GUIMessage("Upscaling factor"),
                 ),
                 "sr_model": ComboBoxOption(
-                    default="shufflecugan",
+                    default="superultracompact",
                     values=sorted(
                         [
-                            "shufflecugan",
-                            "fallin_soft",
-                            "fallin_soft-tensorrt",
-                            "fallin_soft-directml",
-                            "fallin_strong",
-                            "fallin_strong-tensorrt",
-                            "fallin_strong-directml",
-                            "compact",
-                            "ultracompact",
+                            # "fallin_soft",
+                            # "fallin_strong",
+                            # "compact",
+                            # "ultracompact",
                             "superultracompact",
-                            "span",
-                            "compact-directml",
-                            "ultracompact-directml",
-                            "superultracompact-directml",
-                            "shufflespan-directml",
-                            "span-directml",
-                            "shufflecugan-ncnn",
-                            "shufflecugan-directml",
-                            "shufflecugan-openvino",
-                            "span-ncnn",
-                            "compact-tensorrt",
-                            "ultracompact-tensorrt",
-                            "superultracompact-tensorrt",
-                            "span-tensorrt",
-                            "shufflecugan-tensorrt",
-                            "shufflespan-tensorrt",
-                            "open-proteus",
-                            "open-proteus-tensorrt",
-                            "open-proteus-directml",
-                            "aniscale2",
-                            "aniscale2-tensorrt",
-                            "aniscale2-directml",
-                            "rtmosr",
-                            "rtmosr-tensorrt",
-                            "rtmosr-directml",
-                            "saryn",
-                            "saryn-tensorrt",
-                            "saryn-directml",
-                            "animesr",
-                            "animesr-tensorrt",
-                            "animesr-directml",
-                            "animesr-openvino",
-                            "compact-openvino",
-                            "ultracompact-openvino",
-                            "superultracompact-openvino",
-                            "span-openvino",
-                            "open-proteus-openvino",
-                            "aniscale2-openvino",
-                            "shufflespan-openvino",
-                            "rtmosr-openvino",
-                            "saryn-openvino",
-                            "fallin_soft-openvino",
-                            "fallin_strong-openvino",
-                            "gauss",
-                            "gauss-tensorrt",
-                            "gauss-directml",
-                            "gauss-openvino",
+                            # "open-proteus",
+                            # "aniscale2",
                         ]
                     ),
                     ui_group="g_sr",
                     ui_info=GUIMessage("Upscaling method"),
                 ),
-                "custom_model": FileSelectorOption(
+                "custom_sr_model": FileSelectorOption(
                     default="",
-                    ui_file_filter=None,
+                    ui_file_filter="ONNX (*.onnx)",
                     ui_group="g_sr",
-                    ui_info=GUIMessage("Path to custom upscaling model"),
+                    ui_info=GUIMessage(
+                        "Path to custom SR model",
+                        "Takes priority over the selected pre-installed model",
+                    ),
                     validators=validate_path,
                 ),
             },
-            "Deduplication": {
-                "dedup": Option(
-                    default=False,
-                    ui_group="g_dedup",
-                    ui_group_parent=[UIGroups.NESTED_CHILDREN],
-                    ui_info=GUIMessage("Deduplicate the video"),
-                ),
-                "dedup_sens": NumberOption(
-                    default=35.0,
-                    min=0.1,
-                    max=100.0,
-                    ui_group="g_dedup",
-                    ui_info=GUIMessage("Deduplication sensitivity"),
-                ),
-            },
+            # "Deduplication": {
+            #     "dedup": Option(
+            #         default=False,
+            #         ui_group="g_dedup",
+            #         ui_group_parent=[UIGroups.NESTED_CHILDREN],
+            #         ui_info=GUIMessage("Deduplicate the video"),
+            #     ),
+            #     "dedup_sens": NumberOption(
+            #         default=35.0,
+            #         min=0.1,
+            #         max=100.0,
+            #         ui_group="g_dedup",
+            #         ui_info=GUIMessage("Deduplication sensitivity"),
+            #     ),
+            # },
             "Scene Detection": {
                 "scn_detect": Option(
                     default=False,
