@@ -6,7 +6,7 @@
     authors=[{name="NevermindNilas"}, {name="TheRealMorgenfrue"}]
     classifiers=[
         "Development Status :: 4 - Beta",
-        "Programming Language :: Python :: 3.13",
+        # "Programming Language :: Python :: 3.13",
     ]
     dependencies=[
         # Core dependencies
@@ -16,13 +16,14 @@
         # User interface and CLI
         "applib",
         "tqdm>=4.67.3",
+        # "tabulate>=0.10.0", # Olive
         # Video processing
-        "nelux>=0.12.6",
-        "opencv-python-headless==4.13.0.92",
+        "opencv-python-headless>=5.0.0.93",
         # Inference
-        "onnxruntime==1.26.0",
-        "onnx==1.22.0",
         "transformers",
+        # "peft>=0.20.0",
+
+        # "pygobject>=3.56.3",
     ]
     description="A high-performance tool for video upscaling, interpolation, depth estimation, and more."
     dynamic=["version"]
@@ -36,60 +37,84 @@
     license={file="LICENSE"}
     name="TheAnimeScripter-Redux"
     readme="README.md"
-    requires-python=">=3.13"
+    requires-python="==3.12.7"
 
 
     [project.optional-dependencies]
         # Compute platforms (NVIDIA, AMD, Intel, Apple)
         ada=[
-            "torch==2.12.0",
+            "torch>=2.12.0",
             "torchvision",
-            "onnxruntime-gpu==1.26.0",
+            "onnx>=1.22.0",
+            "onnxruntime-gpu>=1.26.0",
+            "onnxoptimizer>=0.4.2",
             "tensorrt>=11.0.0.114",
-            "olive-ai[gpu]>=0.13.0",
+            "olive-ai>=0.11.0",
         ]
         # AMD repo has dependency resolution issues
         # amd=[
         #     "torch==2.12.0",
         #     "torchvision",
         #     # "torch_migraphx==1.1; sys_platform == 'linux'", # numpy compatibility issue (only 1.20 supported)
-        #     "olive-ai[cpu]>=0.13.0",
+        #     "olive-ai[cpu]>=0.11.0",
         # ]
         ampere=[
-            "torch==2.12.0",
+            "torch>=2.12.0",
             "torchvision",
-            "onnxruntime-gpu==1.26.0",
+            "onnx>=1.22.0",
+            "onnxruntime-gpu>=1.26.0",
+            "onnxoptimizer>=0.4.2",
             "tensorrt>=11.0.0.114",
-            "olive-ai[gpu]>=0.13.0",
+            "olive-ai>=0.11.0",
         ]
-        apple=["torch==2.12.0", "torchvision", "olive-ai[cpu]>=0.13.0"]
+        apple=["torch>=2.12.0", "torchvision", "olive-ai>=0.11.0"]
         blackwell=[
-            "torch==2.12.0",
+            "torch>=2.12.0",
             "torchvision",
-            "onnxruntime-gpu==1.26.0",
+            "onnx>=1.22.0",
+            "onnxruntime-gpu>=1.26.0",
+            "onnxoptimizer>=0.4.2",
             "tensorrt>=11.0.0.114",
-            "olive-ai[gpu]>=0.13.0",
+            "olive-ai>=0.11.0",
         ]
-        cpu=["torch==2.12.0", "torchvision", "olive-ai[cpu]>=0.13.0"]
+        cpu=["torch==2.12.0", "torchvision", "olive-ai>=0.11.0"]
         intel=[
-            "torch==2.12.0",
+            "torch>=2.12.0",
             "torchvision",
-            "openvino==2025.4.1",
-            "onnxruntime-openvino==1.24.1",
-            "olive-ai[cpu]>=0.13.0",
+            "onnx>=1.22.0",
+            "onnxoptimizer>=0.4.2",
+            "openvino>=2025.4.1",
+            "onnxruntime-openvino>=1.24.1",
+            # "olive-ai[cpu,openvino]>=0.11.0", # numpy compatibility issue (only 1.20 supported)
+            "olive-ai[cpu]>=0.11.0",
         ]
-        pascal=[
+        pascal=[ # Python 3.13
             "torch==2.12.0",
             "torchvision",
-            "onnxruntime-gpu==1.26.0",
-            "olive-ai[gpu]>=0.13.0",
+            "onnx==1.20.1",
+            "onnxruntime-gpu==1.20.2",
+            "onnxoptimizer==0.4.2",
+            # "olive-ai[nvmo]>=0.11.0",
+            "olive-ai>=0.11.0",
         ]
         turing=[
+            "torch>=2.12.0",
+            "torchvision",
+            "onnx>=1.22.0",
+            "onnxruntime-gpu>=1.26.0",
+            "onnxoptimizer>=0.4.2",
+            "tensorrt>=11.0.0.114",
+            "olive-ai>=0.11.0",
+        ]
+        volta=[ # Python 3.12
             "torch==2.12.0",
             "torchvision",
-            "onnxruntime-gpu==1.26.0",
-            "tensorrt>=11.0.0.114",
-            "olive-ai[gpu]>=0.13.0",
+            "onnx==1.20.1",
+            "onnxruntime-gpu==1.20.2",
+            "onnxoptimizer==0.4.2",
+            # "olive-ai[nvmo]>=0.11.0",
+            # "olive-ai>=0.11.0",
+            "tensorrt==10.4",
         ]
 
     [project.urls]
@@ -109,6 +134,7 @@
             {extra="intel"},
             {extra="apple"},
             {extra="pascal"},
+            {extra="volta"},
             {extra="turing"},
             {extra="ampere"},
             {extra="ada"},
@@ -126,6 +152,7 @@
             {index="cpu", extra="intel"},
             {index="cpu", extra="apple"},
             {index="cu126", extra="pascal"},
+            {index="cu126", extra="volta"},
             {index="cu130", extra="turing"},
             {index="cu130", extra="ampere"},
             {index="cu130", extra="ada"},
@@ -137,6 +164,7 @@
             {index="cpu", extra="intel"},
             {index="cpu", extra="apple"},
             {index="cu126", extra="pascal"},
+            {index="cu126", extra="volta"},
             {index="cu130", extra="turing"},
             {index="cu130", extra="ampere"},
             {index="cu130", extra="ada"},
