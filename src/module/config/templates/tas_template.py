@@ -430,31 +430,27 @@ class TASTemplate(BaseTemplate):
             #     ),
             # },
             "Scene Detection": {
-                "scn_detect": Option(
+                "sbd": Option(
                     default=False,
-                    ui_group="g_scn_detect",
+                    ui_group="g_sbd",
                     ui_group_parent=[UIGroups.NESTED_CHILDREN],
                     ui_info=GUIMessage("Detect scene changes"),
                 ),
-                "scn_detect_method": ComboBoxOption(
-                    default="pyscenedetect",
-                    values=sorted(
-                        [
-                            "pyscenedetect",
-                            "maxxvit-directml",
-                            "maxxvit-tensorrt",
-                            "transnetv2",
-                        ]
+                "sbd_method": ComboBoxOption(
+                    default="omnishotcut",
+                    values=sorted(["pyscenedetect", "omnishotcut"]),
+                    ui_group="g_sbd_detect",
+                    ui_info=GUIMessage(
+                        "Scene detection method",
+                        "OmniShotCut is the best method. PySceneDetect is only provided as a fallback",
                     ),
-                    ui_group="g_scn_detect",
-                    ui_info=GUIMessage("Scene detection method"),
                 ),
-                "scn_detect_sens": NumberOption(
+                "sbd_sens": NumberOption(
                     default=50.0,
                     ui_disable_self=0.0,
                     min=0.0,
                     max=100.0,
-                    ui_group="g_scn_detect",
+                    ui_group="g_sbd_detect",
                     ui_info=GUIMessage("Scene change sensitivity"),
                 ),
             },
