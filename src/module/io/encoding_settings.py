@@ -101,12 +101,12 @@ def match_encoder(encode_method: str) -> list[str]:
                     "-level",
                     "5.1",
                     "-tune",
-                    "ssim",
+                    "animation",
                     "-g",
                     "240",
                 ]
             )
-        case "x265_10bit":
+        case "x265_10bit":  # Reference CPU
             command.extend(
                 [
                     "-c:v",
@@ -117,8 +117,8 @@ def match_encoder(encode_method: str) -> list[str]:
                     "15",
                     "-profile:v",
                     "main10",
-                    "-x265-params",
-                    "log-level=0",
+                    "-tune",
+                    "animation",
                 ]
             )
         case "nvenc_h264":
@@ -156,15 +156,15 @@ def match_encoder(encode_method: str) -> list[str]:
                     "240",
                 ]
             )
-        case "nvenc_h265_10bit":
+        case "nvenc_h265_10bit":  # Reference GPU
             command.extend(
                 [
                     "-c:v",
                     "hevc_nvenc",
                     "-preset",
-                    "p1",
+                    "p7",
                     "-cq",
-                    "15",
+                    "13",
                     "-profile:v",
                     "main10",
                 ]
@@ -343,7 +343,8 @@ def get_pix_fmt(encode_method: str, bit_depth: str, grayscale: bool, transparent
         else:
             # TODO: Make a validator
             LoggingManager().warning(
-                "NVENC H.264 only supports 8-bit encoding. Falling back to 8-bit."
+                "NVENC H.264 only supports 8-bit encoding. Falling back to 8-bit.",
+                pid=0,
             )
 
             in_pix_fmt = "rgb48le"
