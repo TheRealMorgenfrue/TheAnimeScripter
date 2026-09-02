@@ -3,8 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
-from module.models.vfi.vfi_utils import compute_resolution_padding
-
 from .util.warplayer_v2 import warp
 
 
@@ -94,9 +92,9 @@ class IFNet(nn.Module):
         super().__init__()
         self.width = width
         self.height = height
-        self.padded_width = compute_resolution_padding(width, 64)
-        self.padded_height = compute_resolution_padding(height, 64)
-        self.vfi_factor = vfi_factor
+        self.padded_width = width  # compute_resolution_padding(width, 64)
+        self.padded_height = height  # compute_resolution_padding(height, 64)
+        # self.vfi_factor = vfi_factor
         self.block0 = IFBlock(7 + 8, c=192)
         self.block1 = IFBlock(8 + 4 + 8, c=128)
         self.block2 = IFBlock(8 + 4 + 8, c=96)
@@ -136,72 +134,107 @@ class IFNet(nn.Module):
             .expand(-1, -1, -1, self.padded_width)
         ).to(dtype=dtype, device=device)
         self.back_warp = torch.cat([ten_horizontal, ten_vertical], 1)
-        self.f0 = None
-        self.f1 = None
-        self.counter = 1
+        # self.f0 = None
+        # self.f1 = None
+        # self.counter = 1
 
-    def cache(self):
-        assert self.f0 is not None
-        self.f0.copy_(self.f1, non_blocking=True)
+    # def cache(self):
+    #     assert self.f0 is not None
+    #     self.f0.copy_(self.f1, non_blocking=True)
 
-    def cacheReset(self, frame):
-        self.f0 = self.encode(frame)
+    # def cacheReset(self, frame):
+    #     self.f0 = self.encode(frame)
 
-    def forward(self, img0, img1, timestep):
-        if self.counter == self.vfi_factor:
-            self.counter = 1
-            if self.f0 is None:
-                self.f0 = self.encode(img0)
-            self.f1 = self.encode(img1)
-        else:
-            if self.f0 is None or self.f1 is None:
-                self.f0 = self.encode(img0)
-                self.f1 = self.encode(img1)
-        self.counter += 1
+    def forward(self, img0: Tensor, img1: Tensor, timestep: Tensor):
+        """Rife Elexor (Rife 4.7)
+        Improved version of Rife 4.6.
 
-        warped_img0 = img0
-        warped_img1 = img1
-        flow = None
-        large_flow = None
-        mask = None
+        NOTE: This VFI model expects timesteps as 5D tensors and returns
+        predictions as 5D tensors.
 
-        for i in range(6):
-            if flow is None:
-                flow, mask = self.blocks[i](
-                    torch.cat((img0, img1, self.f0, self.f1, timestep), 1),
-                    self.padded_height,
-                    self.padded_width,
-                    None,
-                    scale=self.scale_list[i],
-                )
+        Parameters
+        ----------
+        img0 : Tensor
+            Start frame to interpolate.
+            Shape: `(batch_size, 3, height, width)`
+        img1 : Tensor
+            End frame to interpolate.
+            Shape: `(batch_size, 3, height, width)`
+        timestep : Tensor
+            Predict new frame(s) at these timestep(s) between start and end frame.
+            Shape: `(timestep_amount, batch_size, 1, height, width)`
 
-                if large_flow is not None:
-                    magnitude = torch.sqrt(
-                        large_flow[:, 0, :, :] ** 2 + large_flow[:, 1, :, :] ** 2
+        Returns
+        -------
+        Tensor
+            A 5D tensor of frame predictions.
+            Shape: `(timestep_amount, batch_size, 3, height, width)`
+        """
+        # if self.counter >= self.vfi_factor:
+        #     self.counter = 1
+        #     if self.f0 is None:
+        #         self.f0 = self.encode(img0)
+        #     self.f1 = self.encode(img1)
+        # else:
+        #     if self.f0 is None or self.f1 is None:
+        #         self.f0 = self.encode(img0)
+        #         self.f1 = self.encode(img1)
+        # self.counter += 1
+
+        # Feature extraction of input
+        f0 = self.encode(img0)
+        f1 = self.encode(img1)
+
+        out = []
+        for timestep_ in timestep.unbind():
+            warped_img0 = img0
+            warped_img1 = img1
+            flow = None
+            large_flow = None
+            mask = None
+
+            for i in range(6):
+                if flow is None:
+                    flow, mask = self.blocks[i](
+                        torch.cat((img0, img1, f0, f1, timestep_), 1),
+                        self.padded_height,
+                        self.padded_width,
+                        None,
+                        scale=self.scale_list[i],
                     )
-                    count = torch.sum(magnitude > 40)
-                    mask_large = count > 1036800
-                    flow = torch.where(mask_large, large_flow, flow)
-            else:
-                wf0 = warp(self.f0, flow[:, :2], self.ten_flow, self.back_warp)
-                wf1 = warp(self.f1, flow[:, 2:4], self.ten_flow, self.back_warp)
-                fd, mask = self.blocks[i](
-                    torch.cat((warped_img0, warped_img1, wf0, wf1, timestep, mask), 1),
-                    self.padded_height,
-                    self.padded_width,
-                    flow,
-                    scale=self.scale_list[i],
-                )
-                flow = flow + fd
 
-            warped_img0 = warp(img0, flow[:, :2], self.ten_flow, self.back_warp)
-            warped_img1 = warp(img1, flow[:, 2:4], self.ten_flow, self.back_warp)
+                    if large_flow is not None:
+                        magnitude = torch.sqrt(
+                            large_flow[:, 0, :, :] ** 2 + large_flow[:, 1, :, :] ** 2
+                        )
+                        count = torch.sum(magnitude > 40)
+                        mask_large = count > 1036800
+                        flow = torch.where(mask_large, large_flow, flow)
+                else:
+                    wf0 = warp(f0, flow[:, :2], self.ten_flow, self.back_warp)
+                    wf1 = warp(f1, flow[:, 2:4], self.ten_flow, self.back_warp)
+                    fd, mask = self.blocks[i](
+                        torch.cat(
+                            (warped_img0, warped_img1, wf0, wf1, timestep_, mask), 1
+                        ),
+                        self.padded_height,
+                        self.padded_width,
+                        flow,
+                        scale=self.scale_list[i],
+                    )
+                    flow = flow + fd
 
-            if i == 1:
-                large_flow = flow
-                flow = None
+                warped_img0 = warp(img0, flow[:, :2], self.ten_flow, self.back_warp)
+                warped_img1 = warp(img1, flow[:, 2:4], self.ten_flow, self.back_warp)
 
-        mask = torch.sigmoid(mask)  # type: ignore
-        return (warped_img0 * mask + warped_img1 * (1 - mask))[
-            :, :, : self.height, : self.width
-        ]
+                if i == 1:
+                    large_flow = flow
+                    flow = None
+
+            mask = torch.sigmoid(mask)  # type: ignore
+            out.append(
+                (warped_img0 * mask + warped_img1 * (1 - mask))[
+                    :, :, : self.height, : self.width
+                ].unsqueeze_(0)
+            )
+        return torch.cat(out)
