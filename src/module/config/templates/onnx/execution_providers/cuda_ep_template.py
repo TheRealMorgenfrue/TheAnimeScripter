@@ -111,16 +111,16 @@ class CUDATemplate(BaseTemplate):
                 ),
             ),
             "use_tf32": Option(
-                default=1,
-                converter=GenericConverter([0, 1], [False, True]),
+                default="1",
+                converter=GenericConverter(["0", "1"], [False, True]),
                 ui_info=GUIMessage(
                     "TF32 allows certain F32 matrix multiplications and convolutions to run much faster on tensor cores.",
                     "Available on NVIDIA GPUs since Ampere",
                 ),
             ),
             "prefer_nhwc": Option(
-                default=0,
-                converter=GenericConverter([0, 1], [False, True]),
+                default="0",
+                converter=GenericConverter(["0", "1"], [False, True]),
                 ui_info=GUIMessage(
                     "The execution provider prefers NHWC operators over NCHW",
                     "Since NVIDIA tensor cores operate more efficiently with NHWC layout, enabling this option can improve performance",

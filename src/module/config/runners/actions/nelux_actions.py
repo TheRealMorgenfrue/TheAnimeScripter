@@ -23,7 +23,8 @@ def set_nelux_log_level(level: str | int | nelux.LogLevel):
 
     if _level is None:
         logger.error(
-            f"Invalid NeLux loglevel '{level}'. Expected a value in Enum '{nelux.LogLevel.__name__}'"
+            f"Invalid NeLux loglevel '{level}'. Expected a value in Enum '{nelux.LogLevel.__name__}'",
+            gui=True,
         )
     else:
         try:
