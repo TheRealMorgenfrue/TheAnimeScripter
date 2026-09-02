@@ -301,12 +301,11 @@ class ReadBuffer:
         self,
         frame: Tensor,
         norm_stream: torch.cuda.Stream | None = None,
-        to_nhwc: bool = False,
     ) -> Tensor:
         """Converts a frame tensor from HWC to NCHW memory layout.
 
         While all PyTorch operations expect tensors to be in NCHW layout, NVIDIA tensor cores operate more efficiently with NHWC layout.
-        Thus, depending on the workload, NHWC may be faster than NHWC.
+        Thus, depending on the workload, NHWC may be faster than NCHW.
         However, if the selected layout is not supported by a given tensor operation, necessary layout transformations will be applied to the tensor automatically.
 
         A brief guide regarding memory layouts is available [here](https://uxlfoundation.github.io/oneDNN/dev_guide_understanding_memory_formats.html).
@@ -329,23 +328,20 @@ class ReadBuffer:
             except Exception:
                 pass
 
-            if to_nhwc:
-                # TODO: Test if this works
-                frame = frame.to(
-                    device=self.device_type,
-                    non_blocking=norm_stream is not None,
-                    dtype=self.precision,
-                    memory_format=torch.channels_last,  # NHWC, more efficient on Tensor Cores https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html#prefer_nhwc
-                )
-            else:
-                frame = frame.to(
-                    device=self.device_type,
-                    non_blocking=norm_stream is not None,
-                    dtype=self.precision,
-                )
+            norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
 
-                norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
-                frame = frame.permute(2, 0, 1).mul(norm).clamp(0, 1).unsqueeze(0)
+            frame = (
+                frame.to(
+                    device=self.device_type,
+                    non_blocking=norm_stream is not None,
+                    dtype=self.dtype,
+                    memory_format=torch.contiguous_format,
+                )
+                .permute(2, 0, 1)
+                .mul(norm)
+                .clamp(0, 1)
+                # .unsqueeze(0)
+            )
         if norm_stream is not None:
             norm_stream.synchronize()
 
