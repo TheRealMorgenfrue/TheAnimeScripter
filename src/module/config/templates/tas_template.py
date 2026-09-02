@@ -155,7 +155,7 @@ class TASTemplate(BaseTemplate):
                     ui_info=GUIMessage("File output format."),
                 ),
                 "audio_subs": Option(
-                    default=True,
+                    default=False,
                     ui_info=GUIMessage(
                         "Include audio, subtitles, and chapters in the destination file"
                     ),
