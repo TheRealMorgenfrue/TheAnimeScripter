@@ -356,15 +356,25 @@ class TASTemplate(BaseTemplate):
                         "Scale the input by this factor before interpolation",
                         "Smaller scales are usually faster, but with increasingly higher risk of interpolation artifacts on smaller, fast moving objects",
                     ),
+                    type=float,
                 ),
-                "dynamic_scale": Option(
-                    default=False,
+                "vfi_batch_size": ComboBoxOption(
+                    default=1,
+                    values=list(range(1, 12, 2)),
                     ui_group="g_vfi",
                     ui_info=GUIMessage(
-                        "Use dynamic scaling for interpolation. This can improve the quality of the interpolation at the cost of performance",
-                        "This is experimental and only works with Rife CUDA",
+                        "Number of frames to include in one batch to the model",
+                        "Higher values may be faster at the cost of using more memory",
                     ),
                 ),
+                # "dynamic_scale": Option(
+                #     default=False,
+                #     ui_group="g_vfi",
+                #     ui_info=GUIMessage(
+                #         "Use dynamic scaling for interpolation. This can improve the quality of the interpolation at the cost of performance",
+                #         "This is experimental and only works with Rife CUDA",
+                #     ),
+                # ),
                 "vfi_first": Option(
                     default=False,
                     ui_group="g_vfi",
