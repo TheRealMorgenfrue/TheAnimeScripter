@@ -2,13 +2,13 @@ import random
 import time
 
 import gi
-import numpy
+import numpy as np
+import torchvision
 
 gi.require_version("Gst", "1.0")
 gi.require_version("GstBase", "1.0")
-gi.require_version("GstAnalytics", "1.0")
 
-from gi.repository import GLib, GObject, Gst, GstAnalytics, GstBase  # noqa: E402
+from gi.repository import GLib, GObject, Gst, GstAnalytics, GstBase  # type: ignore
 
 
 def ML_magic(frame):
@@ -55,15 +55,27 @@ SINK_PAD_TEMPLATE = Gst.PadTemplate.new(
 )
 
 
-class SampleFilter(GstBase.BaseTransform):
+class TestFilter(GstBase.BaseTransform):
     __gstmetadata__ = (
-        "OpenCV Filter",
-        "Filter",
-        "OpenCV Sample Filter",
-        "Ruben Gonzaelz <rgonzalez@fluendo.com>",
+        "Test Filter",  # name
+        "Filter",  # classification
+        "Test transform filter impl",  # description
+        "Morgenfrue",  # author
     )
 
     __gsttemplates__ = (SRC_PAD_TEMPLATE, SINK_PAD_TEMPLATE)
+
+    __gproperties__ = {
+        "property-name": (
+            type,  # GObject.TYPE_*
+            "short description",  # str
+            "full desctiption",  # str
+            "min_value",  # any
+            "max_value",  # any
+            "default_value",  # any
+            "flags",  # GObject.ParamFlags
+        )
+    }
 
     def __init__(self):
         super().__init__()
@@ -73,38 +85,43 @@ class SampleFilter(GstBase.BaseTransform):
         s = incaps.get_structure(0)
         self.width = s.get_int("width").value
         self.height = s.get_int("height").value
+        self._preprocess = torchvision.transforms.ToTensor()
+        self._pixel_bytes = 4  # RGBA=4, RGB=3
 
         return True
 
-    def do_transform_ip(self, inbuf):
+    def do_transform_ip(self, buffer: Gst.Buffer) -> Gst.FlowReturn:
+        """Transform buffer in-place."""
         try:
-            inbuf_info = inbuf.map(Gst.MapFlags.READ)
+            inbuf_info = buffer.map(Gst.MapFlags.READ)
             with inbuf_info:
-                frame = numpy.ndarray(
-                    shape=(self.height, self.width, 3),
-                    dtype=numpy.uint8,
+                image_array = np.ndarray(
+                    (self.height, self.width, self._pixel_bytes),
+                    dtype=np.uint8,
                     buffer=inbuf_info.data,
                 )
+                frame = self._preprocess(image_array[:, :, :3])  # RGBA -> RGB
 
                 # Call the ML_magic function
                 x, y = ML_magic(frame)
 
-            meta = GstAnalytics.buffer_add_analytics_relation_meta(inbuf)
+            meta = GstAnalytics.buffer_add_analytics_relation_meta(buffer)
             label = GLib.quark_from_string("label")
             meta.add_od_mtd(label, x, y, 20, 20, 0.55)
 
             return Gst.FlowReturn.OK
 
         except Gst.MapError as e:
-            Gst.error("mapping error %s" % e)
+            Gst.error(f"mapping error {e}")
             return Gst.FlowReturn.ERROR
         except Exception as e:
-            Gst.error("%s" % e)
+            Gst.error(f"{e}")
             return Gst.FlowReturn.ERROR
 
 
-GObject.type_register(SampleFilter)
-Gst.Element.register(None, "sample_filter", Gst.Rank.NONE, SampleFilter)
+GObject.type_register(TestFilter)
+Gst.Element.register(None, "sample_filter", Gst.Rank.NONE, TestFilter)
+
 
 gstreamer_pipeline = """
                 videotestsrc num-buffers=100 ! video/x-raw, width=640, height=480, framerate=30/1 ! videoconvert ! video/x-raw, width=640, height=480, framerate=30/1 !
