@@ -87,53 +87,57 @@ class IOHandler:
 
     def _generate_output_name(self, config: TASConfig, input_path: str):
         """Generates output filename based on input and processing arguments."""
+        categpry_delim = ";"
+        setting_delim = ","
+        na = "null"  # Missing value
 
-        ## Suffix arguments ##
-        ensemble = "-ensemble" if config.get_value("ensemble", default=False) else ""
-        dynamic_scale = (
-            "-dynamic_scale" if config.get_value("dynamic_scale", default=False) else ""
-        )
+        arg_map = {"dedup": "", "sbd": "", "vfi": "", "sr": ""}
 
-        argMap = {
-            "resize": (
-                f"_Resize{config.get_value('resize_factor', default='')}"
-                if config.get_value("resize", default=False)
+        if config.get_value("dedup", default=False):
+            dedup = [
+                f"dedup={config.get_value('dedup_method', default=na)}",
+                f"sens={config.get_value('dedup_sens', default=na)}",
+            ]
+            arg_map["dedup"] = setting_delim.join(dedup)
+        if config.get_value("sbd", default=False):
+            scene_detect = [
+                f"sbd={config.get_value('sbd_method', default=na)}",
+                f"sens={config.get_value('sbd_sens', default=na)}",
+            ]
+            arg_map["sbd"] = setting_delim.join(scene_detect)
+        if config.get_value("vfi", default=False):
+            custom_vfi = config.get_value("custom_vfi_model", default="")
+            vfi = [
+                f"vfi={custom_vfi if custom_vfi else config.get_value('vfi_model', default=na)}",
+                f"factor={config.get_value('vfi_factor', default=na)}",
+                f"scale={config.get_value('vfi_scale', default=na)}",
+                f"bsize={config.get_value('vfi_batch_size', default=na)}",
+            ]
+            ensemble = "ensemble" if config.get_value("ensemble", default=False) else ""
+            dynamic_scale = (
+                "dynamic_scale"
+                if config.get_value("dynamic_scale", default=False)
                 else ""
-            ),
-            "dedup": (
-                f"_Dedup={config.get_value('dedup_method', default='')}-Sens={config.get_value('dedup_sens', default='')}"
-                if config.get_value("dedup", default=False)
-                else ""
-            ),
-            "interpolate": (
-                f"_VFI={config.get_value('interpolate_method', default='')}-{config.get_value('interpolate_factor', default='')}x{ensemble}{dynamic_scale}"
-                if config.get_value("interpolate", default=False)
-                else ""
-            ),
-            "upscale": (
-                f"_SR={config.get_value('upscale_method', default='')}-{config.get_value('upscale_factor', default='')}x"
-                if config.get_value("upscale", default=False)
-                else ""
-            ),
-            "sharpen": (
-                f"_Sh{config.get_value('sharpen_sens', default='')}"
-                if config.get_value("sharpen", default=False)
-                else ""
-            ),
-            "restore": (
-                f"_Restore{config.get_value('restore_method', default='')}"
-                if config.get_value("restore", default=False)
-                else ""
-            ),
-            "segment": "_Segment" if config.get_value("segment", default=False) else "",
-            "depth": "_Depth" if config.get_value("depth", default=False) else "",
-            "ytdlp": "_YTDLP" if config.get_value("ytdlp", default=False) else "",
-        }
+            )
+
+            if ensemble:
+                vfi.append(ensemble)
+            if dynamic_scale:
+                vfi.append(dynamic_scale)
+
+            arg_map["vfi"] = setting_delim.join(vfi)
+        if config.get_value("sr", default=False):
+            sr = [
+                f"sr={config.get_value('sr_model', default=na)}",
+                f"factor={config.get_value('sr_factor', default=na)}",
+            ]
+            arg_map["sr"] = setting_delim.join(sr)
+
         #####
 
         # Handle URL input
-        if input_path in ["https://", "http://"]:
-            return f"TAS-YTDLP-{random.randint(0, 1000)}.mp4"
+        # if input_path in ["https://", "http://"]:
+        #     return f"TAS-YTDLP-{random.randint(0, 1000)}.mp4"
 
         # Start with base name
         baseName = (
@@ -141,15 +145,20 @@ class IOHandler:
         )
 
         # Add processing indicators
-        suffixes = [suffix for suffix in argMap.values() if suffix]
+        suffixes = [
+            f"_dec={config.get_value('decode_method', default=na)}",
+            f"enc={config.get_value('encode_method', default=na)}",
+            f"dtype={config.get_value('precision', default=na)}",
+        ]
+        suffixes.extend([suffix for suffix in arg_map.values() if suffix])
 
         # Add random number to prevent overwrites
-        suffixes.append(f"_ID{random.randint(0, 1000)}")
+        file_id = f"_ID{random.randint(0, 1000)}"
 
         # Determine extension
         if (
             config.get_value("segment", default=False)
-            or config.get_value("encode_method", "") == "prores"
+            or config.get_value("encode_method", default="") == "prores"
         ):
             extension = ".mov"
         elif config.get_value("encode_method") == "png":
@@ -159,7 +168,7 @@ class IOHandler:
         else:
             extension = ".mkv"
 
-        return baseName + "".join(suffixes) + extension
+        return baseName + categpry_delim.join(suffixes) + file_id + extension
 
     def _generate_output_path(
         self, config: TASConfig, output_dir: str, input_path: str
@@ -217,7 +226,7 @@ class IOHandler:
                     [v.strip() for v in path.split(";") if v.strip() != ""]
                 )
                 output_paths.extend(files)
-        return output_paths
+        return sorted(output_paths)
 
     def get_input_files(self) -> list[PathConfiguration]:
         """Returns the paths of video files found at the input location."""
