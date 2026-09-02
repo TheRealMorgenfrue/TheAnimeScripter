@@ -11,7 +11,9 @@ from queue import Queue
 from typing import Any, override
 
 import cv2
-import nelux
+
+# import nelux
+import numpy as np
 import torch
 from applib import LoggingManager
 from torch import Tensor, dtype
@@ -104,23 +106,29 @@ class ReadBuffer:
     def __call__(self):
         """Decodes frames from the video and stores them in the decodeBuffer."""
         decoded_frames = 0
-        try:
-            decoded_frames += self._decode_with_nelux()
-        except Exception:
-            self._logger.error(f"NeLux decoding error:\n{traceback.format_exc()}")
+        # try:
+        #     decoded_frames += self._decode_with_nelux()
+        # except Exception:
+        #     self._logger.error(f"NeLux decoding error:\n{traceback.format_exc()}")
 
-            if self.decode_method != "cpu":
-                self._logger.warning(
-                    "NeLux decode failed with non-CPU method; retrying with cpu."
-                )
-                self.decode_method = "cpu"
-                try:
-                    decoded_frames += self._decode_with_nelux()
-                    return
-                except Exception:
-                    self._logger.error(
-                        f"NeLux CPU retry failed:\n{traceback.format_exc()}"
-                    )
+        #     if self.decode_method != "cpu":
+        #         self._logger.warning(
+        #             "NeLux decode failed with non-CPU method; retrying with cpu."
+        #         )
+        #         self.decode_method = "cpu"
+        #         try:
+        #             decoded_frames += self._decode_with_nelux()
+        #             return
+        #         except Exception:
+        #             self._logger.error(
+        #                 f"NeLux CPU retry failed:\n{traceback.format_exc()}"
+        #             )
+        try:
+            decoded_frames += self._decode_with_ffmpeg()
+        except Exception:
+            self.logger.error(
+                f"FFmpeg decoding error:\n{traceback.format_exc()}", pid=0
+            )
 
             self.logger.info("Attempting fallback to OpenCV decoder...", pid=0)
             try:
@@ -136,29 +144,29 @@ class ReadBuffer:
             self.is_finished = True
             self.logger.debug(f"Decoded {decoded_frames} frames", pid=0)
 
-    def _decode_with_nelux(self) -> int:
-        """Returns the number of frames decoded."""
-        self._logger.debug(
-            f"Initializing NeLux for '{self.input_path}' ({self.decode_method})"
-        )
+    # def _decode_with_nelux(self) -> int:
+    #     """Returns the number of frames decoded."""
+    #     self._logger.debug(
+    #         f"Initializing NeLux decoder for '{self.input_path}' ({self.decode_method})"
+    #     )
 
-        reader = nelux.VideoReader(
-            self.input_path,
-            decode_accelerator=self.decode_method,
-            backend="pytorch",
-        )
+    #     reader = nelux.VideoReader(
+    #         self.input_path,
+    #         decode_accelerator=self.decode_method,
+    #         backend="pytorch",
+    #     )
 
-        if self.inpoint > 0 or self.outpoint > 0:
-            reader[self.inpoint, self.outpoint]
+    #     if self.inpoint > 0 or self.outpoint > 0:
+    #         reader[self.inpoint, self.outpoint]
 
-        decoded_frames = 0
+    #     decoded_frames = 0
 
-        for frame in reader:
-            frame = self._convert_frame_format(frame, self.cuda_norm_stream)  # type: ignore
-            self.decode_buffer.put(frame)
-            self._frame_available.set()
-            decoded_frames += 1
-        return decoded_frames
+    #     for frame in reader:
+    #         frame = self._convert_frame_format(frame, self.cuda_norm_stream)  # type: ignore
+    #         self.decode_buffer.put(frame)
+    #         self._frame_available.set()
+    #         decoded_frames += 1
+    #     return decoded_frames
 
     def _decode_with_opencv(self) -> int:
         """Returns the number of frames decoded."""
@@ -722,126 +730,128 @@ class WriteBufferFFmpeg(WriteBuffer):
                 self._logger.error(f"Cleanup error:\n{traceback.format_exc()}", pid=0)
 
 
-class WriteBufferNeLux(WriteBuffer):
-    """
-    Write buffer that uses NeLux VideoEncoder for NVENC encoding.
-    More efficient than FFmpeg pipe for GPU-resident frames.
-    """
+# class WriteBufferNeLux(WriteBuffer):
+#     """
+#     Write buffer that uses NeLux VideoEncoder for NVENC encoding.
+#     More efficient than FFmpeg pipe for GPU-resident frames.
+#     """
 
-    def __init__(
-        self,
-        input_path: str,
-        output_path: str,
-        width: int,
-        height: int,
-        fps: float,
-        encode_method: str,
-        **kwargs,  # Accept and ignore other WriteBuffer params for compatibility
-    ):
-        """Initialize the NeLux-based encoder.
+#     def __init__(
+#         self,
+#         input_path: str,
+#         output_path: str,
+#         width: int,
+#         height: int,
+#         fps: float,
+#         encode_method: str,
+#         **kwargs,  # Accept and ignore other WriteBuffer params for compatibility
+#     ):
+#         """Initialize the NeLux-based encoder.
 
-        Parameters
-        ----------
-        input_path : str
-            The path to the input file.
-        output_path : str
-            The path to the output file.
-        width : int
-            The width of the output video in pixels.
-        height : int
-            The height of the output video in pixels.
-        fps : float
-            The framerate of the output video.
-        encode_method : str
-            The encoding method to encode the output file with.
-        """
-        super().__init__()
-        self.input_path = input_path
-        self.output_path = os.path.normpath(output_path)
-        self.width = width
-        self.height = height
-        self.fps = fps
-        self.inpoint: float = self._config["inpoint"]
-        self.outpoint: float = self._config["outpoint"]
+#         Parameters
+#         ----------
+#         input_path : str
+#             The path to the input file.
+#         output_path : str
+#             The path to the output file.
+#         width : int
+#             The width of the output video in pixels.
+#         height : int
+#             The height of the output video in pixels.
+#         fps : float
+#             The framerate of the output video.
+#         encode_method : str
+#             The encoding method to encode the output file with.
+#         """
+#         super().__init__()
+#         self.input_path = input_path
+#         self.output_path = os.path.normpath(output_path)
+#         self.width = width
+#         self.height = height
+#         self.fps = fps
+#         self.inpoint: float = self._config["inpoint"]
+#         self.outpoint: float = self._config["outpoint"]
 
-        codec_map = {
-            "nvenc_h264_nelux": "h264_nvenc",
-            "nvenc_h265_nelux": "hevc_nvenc",
-            "nvenc_av1_nelux": "av1_nvenc",
-        }
-        self.codec = codec_map.get(encode_method, "h264_nvenc")
-        self.encoder = None
+#         codec_map = {
+#             "nvenc_h264_nelux": "h264_nvenc",
+#             "nvenc_h265_nelux": "hevc_nvenc",
+#             "nvenc_av1_nelux": "av1_nvenc",
+#         }
+#         self.codec = codec_map.get(encode_method, "h264_nvenc")
+#         self.encoder = None
 
-        if CudaChecker.cuda_available:
-            # An exception here should propagate to caller
-            self.cuda_stream = torch.cuda.Stream()
+#         if CudaChecker.cuda_available:
+#             # An exception here should propagate to caller
+#             self.cuda_stream = torch.cuda.Stream()
 
-        self._logger.info(
-            f"NeLux write buffer initialized: {width}x{height}@{fps}fps, codec={self.codec}"
-        )
+#         self._logger.info(
+#             f"NeLux write buffer initialized: {width}x{height}@{fps}fps, codec={self.codec}"
+#         )
 
-    @override
-    def __call__(self):
-        written_frames = 0
-        try:
-            while self.write_buffer.empty():
-                time.sleep(0.001)
+#     @override
+#     def __call__(self):
+#         written_frames = 0
+#         try:
+#             while self.write_buffer.empty():
+#                 time.sleep(0.001)
 
-            self.encoder = nelux.VideoEncoder(
-                self.output_path,
-                codec=self.codec,
-                width=self.width,
-                height=self.height,
-                fps=self.fps,
-            )
+#             self.encoder = nelux.VideoEncoder(
+#                 self.output_path,
+#                 codec=self.codec,
+#                 width=self.width,
+#                 height=self.height,
+#                 fps=self.fps,
+#             )
 
-            if hasattr(self.encoder, "is_hardware_encoder"):
-                if self.encoder.is_hardware_encoder:
-                    self._logger.debug(
-                        f"NeLux NVENC encoder confirmed: {self.codec} -> {self.output_path}"
-                    )
-                else:
-                    self._logger.warning(
-                        f"NeLux encoder is NOT using hardware NVENC! Codec: {self.codec}"
-                    )
-            else:
-                self._logger.debug(
-                    f"Nelux encoder created: {self.codec} -> {self.output_path}"
-                )
+#             if hasattr(self.encoder, "is_hardware_encoder"):
+#                 if self.encoder.is_hardware_encoder:
+#                     self._logger.debug(
+#                         f"NeLux NVENC encoder confirmed: {self.codec} -> {self.output_path}"
+#                     )
+#                 else:
+#                     self._logger.warning(
+#                         f"NeLux encoder is NOT using hardware NVENC! Codec: {self.codec}"
+#                     )
+#             else:
+#                 self._logger.debug(
+#                     f"Nelux encoder created: {self.codec} -> {self.output_path}"
+#                 )
 
-            while True:
-                try:
-                    frame = self.write_buffer.get(timeout=1.0)
-                except Exception:
-                    time.sleep(0.001)
-                    continue
+#             while True:
+#                 try:
+#                     frame = self.write_buffer.get(timeout=1.0)
+#                 except Exception:
+#                     time.sleep(0.001)
+#                     continue
 
-                if frame is None:
-                    break
+#                 if frame is None:
+#                     break
 
-                with torch.cuda.stream(self.cuda_stream):
-                    frame = frame.squeeze(0).permute(1, 2, 0)
-                    frame = (
-                        frame.mul(255.0)
-                        .clamp(0, 255)
-                        .to(dtype=torch.uint8, non_blocking=True)
-                        .contiguous()
-                    )
-                self.cuda_stream.synchronize()
-                self.encoder.encode_frame(frame)
-                written_frames += 1
+#                 with torch.cuda.stream(self.cuda_stream):
+#                     frame = (
+#                         frame.squeeze(0)
+#                         .permute(1, 2, 0)
+#                         .mul(255.0)
+#                         .clamp(0, 255)
+#                         .to(dtype=torch.uint8, non_blocking=True)
+#                         .contiguous()
+#                     )
 
-            self._logger.debug(f"NeLux encoded {written_frames} frames")
-        except Exception:
-            self._logger.error(f"NeLux encoding error:\n{traceback.format_exc()}")
-        finally:
-            if self.encoder is not None:
-                try:
-                    self.encoder.close()
-                except Exception:
-                    self._logger.error(
-                        f"Error closing NeLux encoder:\n{traceback.format_exc()}"
-                    )
+#                 self.cuda_stream.synchronize()
+#                 self.encoder.encode_frame(frame)
+#                 written_frames += 1
+
+#             self._logger.debug(f"NeLux encoded {written_frames} frames")
+#         except Exception:
+#             self._logger.error(f"NeLux encoding error:\n{traceback.format_exc()}")
+#         finally:
+#             if self.encoder is not None:
+#                 try:
+#                     self.encoder.close()
+#                 except Exception:
+#                     self._logger.error(
+#                         f"Error closing NeLux encoder:\n{traceback.format_exc()}"
+#                     )
 
 
 def create_write_buffer(encode_method: str, **kwargs) -> WriteBuffer:
@@ -870,7 +880,7 @@ def create_write_buffer(encode_method: str, **kwargs) -> WriteBuffer:
         ...
     )
     """
-    if encode_method.endswith("_nelux"):
-        return WriteBufferNeLux(encode_method=encode_method, **kwargs)
-    else:
-        return WriteBufferFFmpeg(encode_method=encode_method, **kwargs)
+    # if encode_method.endswith("_nelux"):
+    #     return WriteBufferNeLux(encode_method=encode_method, **kwargs)
+    # else:
+    return WriteBufferFFmpeg(encode_method=encode_method, **kwargs)
