@@ -1,13 +1,10 @@
-import math
 from typing import override
 
 import torch
-import torch.nn as nn
 from torch import Tensor
 from torch.types import Device
 
 from src.module.models.tensors_base import ModelTensorsBase
-from src.module.models.vfi.vfi_utils import compute_resolution_padding
 
 
 class VFIModelTensors(ModelTensorsBase):
@@ -17,46 +14,31 @@ class VFIModelTensors(ModelTensorsBase):
         self,
         width: int,
         height: int,
-        multiplier: int,
-        channels: int,
+        batch_size: int,
     ) -> None:
         super().__init__()
         self.width = width
         self.height = height
-        self.multiplier = multiplier
-        self.channels = channels
-        self.padded_width = compute_resolution_padding(width, multiplier)
-        self.padded_height = compute_resolution_padding(height, multiplier)
-        self.padding = (0, self.padded_width - width, 0, self.padded_height - height)
-
-        # The encode operation is added externally when loading the Torch model.
-        self.ENCODE: nn.Sequential
 
         self.I0_IN: Tensor
         self.I1_IN: Tensor
         self.TIMESTEP_IN: Tensor
-        self.F0_IN: Tensor
         self.PREDICTION_OUT: Tensor
-        self.F1_OUT: Tensor
 
-        frame_shape = [1, 3, self.height, self.width]
-        padded_frame_shape = [1, 3, self.padded_height, self.padded_width]
-        timestep_shape = [1, 1, self.padded_height, self.padded_width]
-        encoded_frame_shape = [1, self.channels, self.padded_height, self.padded_width]
+        frame_shape = [batch_size, 3, self.height, self.width]
+        timestep_shape = [batch_size, 1, self.height, self.width]
 
-        self.input_names = ["img0", "img1", "timestep", "f0"]
-        self.input_fill_values = [0, 0, 0.5, 0]
+        self.input_names = ["img0", "img1", "timestep"]
+        self.input_fill_values = [0, 0, 0.5]
         self.input_shapes = [
-            padded_frame_shape,  # I0
-            padded_frame_shape,  # I1
+            frame_shape,  # I0
+            frame_shape,  # I1
             timestep_shape,  # Timestep
-            encoded_frame_shape,  # F0
         ]
-        self.output_names = ["prediction", "f1"]
-        self.output_fill_values = [0, 0]
+        self.output_names = ["prediction"]
+        self.output_fill_values = [0]
         self.output_shapes = [
             frame_shape,  # Output
-            encoded_frame_shape,  # F1
         ]
 
     @override
@@ -82,9 +64,7 @@ class VFIModelTensors(ModelTensorsBase):
         self.I0_IN = input_tensors[self.input_names[0]]
         self.I1_IN = input_tensors[self.input_names[1]]
         self.TIMESTEP_IN = input_tensors[self.input_names[2]]
-        self.F0_IN = input_tensors[self.input_names[3]]
         self.PREDICTION_OUT = output_tensors[self.output_names[0]]
-        self.F1_OUT = output_tensors[self.output_names[1]]
 
         return (input_tensors, output_tensors)
 
@@ -104,6 +84,5 @@ class VFIModelTensors(ModelTensorsBase):
             self.input_names[0]: {"2": "height", "3": "width"},
             self.input_names[1]: {"2": "height", "3": "width"},
             self.input_names[2]: {"2": "height", "3": "width"},
-            self.input_names[3]: {"2": "height", "3": "width"},
             self.output_names[0]: {"1": "height", "2": "width"},
         }
