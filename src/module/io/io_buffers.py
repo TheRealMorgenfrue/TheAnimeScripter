@@ -1,3 +1,4 @@
+import io
 import logging
 import os
 import queue
@@ -15,16 +16,15 @@ import cv2
 # import nelux
 import numpy as np
 import torch
+import torch.nn.functional as F
 from applib import LoggingManager
 from torch import Tensor, dtype
-from torch.nn import functional
 
 from src.module.config.input_metadata_config import InputMetadataConfig
 from src.module.config.tas_config import TASConfig
 from src.module.io.encoding_settings import get_pix_fmt, match_encoder
+from src.module.utils.hardware_checkers.hardware_checker import HardwareChecker
 from src.module.utils.type_mappings import TensorProtoMap
-
-from ..utils.cuda_checker import CudaChecker
 
 
 class PeekQueue(Queue):
@@ -75,7 +75,7 @@ class ReadBuffer:
         NeLux returns HWC format [H, W, 3] with native dtype (uint8/int16).
         The method `_convert_frame_format` converts this to BCHW float format for processing.
         """
-        self._logger = LoggingManager()
+        self.logger = LoggingManager()
         self._frame_available = threading.Event()
         self._config = TASConfig()
 
@@ -83,7 +83,7 @@ class ReadBuffer:
         self.width = width
         self.height = height
         self.decode_method: str = self._config["decode_method"]
-        self.precision = TensorProtoMap().get_torch(self._config["precision"])
+        self.dtype = TensorProtoMap().get_torch(self._config["precision"])
         self.bit_depth: str = self._config["bit_depth"]
         self.inpoint: float = self._config["inpoint"]
         self.outpoint: float = self._config["outpoint"]
@@ -93,7 +93,7 @@ class ReadBuffer:
         self.device_type = "cpu"
         self.cuda_norm_stream: torch.cuda.Stream | None = None
 
-        if CudaChecker().cuda_available:
+        if HardwareChecker().cuda_available:
             try:
                 self.cuda_norm_stream = torch.cuda.Stream()
                 self.device_type = "cuda"
@@ -672,7 +672,7 @@ class WriteBufferFFmpeg(WriteBuffer):
         self, frame: Tensor, multiplier: int, dtype: dtype, needs_resize: bool
     ) -> Tensor:
         if needs_resize:
-            frame = functional.interpolate(
+            frame = F.interpolate(
                 frame,
                 size=(self.height, self.width),
                 mode="bicubic",
@@ -680,8 +680,7 @@ class WriteBufferFFmpeg(WriteBuffer):
             )
 
         return (
-            frame.squeeze(0)
-            .permute(1, 2, 0)
+            frame.permute(1, 2, 0)  # .squeeze(0)
             .mul(multiplier)
             .clamp(0, multiplier)
             .to(dtype)
@@ -714,8 +713,8 @@ class WriteBufferFFmpeg(WriteBuffer):
                 dtype = torch.uint16
 
             needs_resize = (
-                initial_frame.shape[2] != self.height
-                or initial_frame.shape[3] != self.width
+                initial_frame.shape[1] != self.height
+                or initial_frame.shape[2] != self.width
             )
 
             if needs_resize:
@@ -729,7 +728,7 @@ class WriteBufferFFmpeg(WriteBuffer):
 
             use_cuda = False
             transfer_stream = None
-            if CudaChecker().cuda_available:
+            if HardwareChecker().cuda_available:
                 try:
                     transfer_stream = torch.cuda.Stream()
                     use_cuda = True
@@ -768,21 +767,23 @@ class WriteBufferFFmpeg(WriteBuffer):
 
                     if pending_buffer is not None and pending_event is not None:
                         pending_event.synchronize()
-                        ffmpeg_proc.stdin.write(memoryview(pending_buffer.numpy()))  # type: ignore
+                        ffmpeg_proc.stdin.write(pending_buffer.numpy())  # type: ignore
                         written_frames += 1
 
-                    if frame is not None:
-                        with torch.cuda.stream(transfer_stream):
-                            out_frame = self._process_frame(
-                                frame, multiplier, dtype, needs_resize
-                            )
-                            current_buffer = pinnedBuffers[buffer_index]
-                            current_buffer.copy_(out_frame, non_blocking=True)
-                            current_event = transfer_events[buffer_index]
-                            current_event.record(transfer_stream)  # type: ignore
-                            pending_buffer = current_buffer
-                            pending_event = current_event
-                            buffer_index = 1 - buffer_index
+                    if frame is None:
+                        break
+
+                    with torch.cuda.stream(transfer_stream):
+                        out_frame = self._process_frame(
+                            frame, multiplier, dtype, needs_resize
+                        )
+                        current_buffer = pinnedBuffers[buffer_index]
+                        current_buffer.copy_(out_frame, non_blocking=True)
+                        current_event = transfer_events[buffer_index]
+                        current_event.record(transfer_stream)  # type: ignore
+                        pending_buffer = current_buffer
+                        pending_event = current_event
+                        buffer_index = 1 - buffer_index
             else:
                 while True:
                     try:
@@ -797,7 +798,7 @@ class WriteBufferFFmpeg(WriteBuffer):
                     out_frame = self._process_frame(
                         frame, multiplier, dtype, needs_resize
                     )
-                    ffmpeg_proc.stdin.write(memoryview(out_frame.cpu().numpy()))  # type: ignore
+                    ffmpeg_proc.stdin.write(out_frame.numpy())  # type: ignore
                     written_frames += 1
             self._logger.debug(f"Encoded {written_frames} frames", pid=0)
         except Exception:
