@@ -146,7 +146,12 @@ class TASTemplate(BaseTemplate):
                 ),
                 "output_format": ComboBoxOption(
                     default="mkv",
-                    values=["mkv", "mp4", "webm", "mov", "avi"],
+                    values=[
+                        "mkv",
+                        "mp4",
+                        "webm",
+                        "mov",
+                    ],
                     ui_info=GUIMessage("File output format."),
                 ),
                 "audio_subs": Option(
