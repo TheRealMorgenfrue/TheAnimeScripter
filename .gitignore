@@ -1,23 +1,39 @@
 # TAS
 configs/
+
+# Cache
 olive_cache/
 olive_model_optim/
 
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
+# Test input
+input/
+media/
 
-installer.cfg
-
-# copilot
-.github/copilot-instructions.md
-
-# ffmpeg shared
+# FFmpeg shared
 ffmpeg_shared/
 
 # weights folder
 weights/
+
+# Output Folder
+output/
+
+# Logs
+log.txt
+ffmpeg_log.txt
+
+# DEPTH TORCH HUB
+src/depth/hub
+
+# Gstreamer
+gstreamer/
+
+#---
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+installer.cfg
 
 # C extensions
 *.so
@@ -46,18 +62,6 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# DEPTH TORCH HUB
-src/depth/hub
-
-# FFMPEG
-src/FFMPEG
-
-# Models
-src/weights
-
-# Cleanup
-src/cleanup.py
-
 # Extra json
 *.json
 
@@ -66,18 +70,6 @@ src/cleanup.py
 
 # Extra files
 extra-wheels/
-
-# test input
-input/
-
-# Output Folder
-output/
-
-# log.txt
-log.txt
-
-# ffmpeg_log.txt
-ffmpeg_log.txt
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
