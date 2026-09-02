@@ -2,7 +2,6 @@ import os
 import queue
 import traceback
 from concurrent.futures import ThreadPoolExecutor
-from math import ceil
 from time import time
 
 from applib import LoggingManager
@@ -21,7 +20,7 @@ from src.module.io.io_buffers import (
 from src.module.io.io_handler import PathConfiguration
 from src.module.models.model_base import ModelBase
 from src.module.models.model_handler import ModelHandler
-from src.module.utils.cuda_checker import CudaChecker
+from src.module.utils.hardware_checkers.hardware_checker import HardwareChecker
 
 
 class VideoProcessor:
@@ -58,11 +57,11 @@ class VideoProcessor:
             self.vfi and self.vfi_model.startswith(("distildrba", "atr"))
         )
         self.process_list: list[ModelBase] = ModelHandler().initialize_models(
-            width=self.width, height=self.height
+            width=self.width,
+            height=self.height,
+            total_frames=self.input_metadata["total_frames_to_process"],
         )
-        self.current_frame_buffer: PeekQueue[Tensor] = PeekQueue(
-            maxsize=ceil(self.vfi_factor)
-        )
+        self.current_frame_buffer: PeekQueue[Tensor] = PeekQueue()
         self.read_buffer = ReadBuffer(
             input_path=self.path.input_path,
             width=self.width,
@@ -140,16 +139,14 @@ class VideoProcessor:
         Processes all frames through the configured enhancement pipeline and
         tracks processing statistics.
         """
-        increment = self.vfi_factor if self.vfi else 1
         total_frames_to_process = self.input_metadata["total_frames_to_process"]
-
         try:
             for i in tqdm(
                 range(total_frames_to_process),
-                total=total_frames_to_process,  # * increment,
+                total=total_frames_to_process,
                 miniters=0,
                 ascii=False,
-                unit="FPS",
+                unit="frames",
                 dynamic_ncols=True,
                 smoothing=0.5,
                 postfix={},
@@ -191,11 +188,7 @@ class VideoProcessor:
 
         total_frames_to_process = self.input_metadata["total_frames_to_process"]
         elapsed_time: float = time() - self.start_time
-        total_fps: float = (
-            total_frames_to_process
-            / elapsed_time
-            * (1 if not self.vfi else self.vfi_factor)
-        )
+        total_fps: float = total_frames_to_process / elapsed_time
 
         self.logger.info(
             f"Total Execution Time: {elapsed_time:.2f} seconds - FPS: {total_fps:.2f}",
@@ -207,7 +200,7 @@ class VideoProcessor:
         Run the processing pipeline with torch.profiler enabled.
         Uses a simplified approach compatible with multi-threaded execution on Windows.
         """
-        is_cuda_available = CudaChecker().cuda_available
+        is_cuda_available = HardwareChecker().cuda_available
         profilePath = os.path.join(TASArgs.app_dir, "profiler_trace")
         os.makedirs(profilePath, exist_ok=True)
 
