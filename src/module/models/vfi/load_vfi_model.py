@@ -11,12 +11,12 @@ def load_vfi_model(model_path: str):
     match model_name:
         # TODO: Imports can be done programmatically with importlib
         case "rife_elexor":
-            from src.module.models.vfi.rife.IFNet_elexor import IFNet
+            from src.module.models.vfi.rife.IFNet_elexor_basic import IFNet
 
             model = IFNet(**model_params)
             model.load_state_dict(torch.load(model_path))
             model.eval()
-            tensor_params["tensors"].ENCODE = model.encode
+            # tensor_params["tensors"].ENCODE = model.encode
             return model
         case "rife425":
             from src.module.models.vfi.rife.Rife425_v3 import IFNet
@@ -116,9 +116,9 @@ def test_saver(model_path: str):
     else:
         out_path = model_path
 
-    session_options = ModelBase.get_session_configuration()
+    session_options = ModelBase.ort_get_session_configuration()
     providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-    provider_options = ModelBase.get_provider_configs(providers)
+    provider_options = ModelBase.ort_get_provider_configs(providers)
 
     session = onnxruntime.InferenceSession(
         out_path,
