@@ -166,25 +166,24 @@ All available parameters for interacting with the CLI or directly with `main.py`
 
 | Version               | CUDA | TensorRT | DirectML | NCNN |
 | --------------------- | :--: | :------: | :------: | :--: |
-| 4.6                   |  ✅  |    ✅    |    ❌    |  ✅  |
 | Rife_Elexor (mod 4.7) |  ✅  |    ✅    |    ❌    |  ❌  |
 
 # Project Contributors
 
 ## Model & Algorithm Contributors
 
-| Contributor                                     | Contribution                 | Repository                                                                             |
-| ----------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------- |
-| [renarchi](https://github.com/renarchi)         | Fallin Soft & Strong models  | [Fallin-Upscale](https://github.com/renarchi/Re-SISR)                                  |
-| [HZWER](https://github.com/hzwer)               | RIFE interpolation framework | [Practical-RIFE](https://github.com/hzwer/Practical-RIFE)                              |
-| [the-database](https://github.com/the-database) | SRVGGNet model variants      | [mpv-upscale-2x_animejanai](https://github.com/the-database/mpv-upscale-2x_animejanai) |
-| [Sirosky](https://github.com/Sirosky)           | Open-Proteus & AniScale 2    | [Upscale-Hub](https://github.com/Sirosky/Upscale-Hub)                                  |
-| [Elexor](https://github.com/elexor)             | Custom RIFE modifications    | [Modded Rife Experiment(s)](https://github.com/elexor)                                 |
+| Contributor                                              | Type                  | Contribution                 | Repository                                                                 |
+| -------------------------------------------------------- | --------------------- | ---------------------------- | -------------------------------------------------------------------------- |
+| [HZWER](https://github.com/hzwer)                        | Interpolation (VFI)   | RIFE                         | [Practical-RIFE](https://github.com/hzwer/Practical-RIFE)                  |
+| [Elexor](https://github.com/elexor)                      | Interpolation (VFI)   | Custom RIFE modifications    | [Modded Rife Experiment(s)](https://github.com/elexor)                     |
+| [renarchi](https://github.com/renarchi)                  | Upscale (SR)          | Fallin' Soft & Strong models | [Fallin-Upscale](https://github.com/renarchi/Re-SISR)                      |
+| [the-database](https://github.com/the-database)          | Upscale (SR)          | SRVGGNet model variants      | [2x_animejanai](https://github.com/the-database/mpv-upscale-2x_animejanai) |
+| [Sirosky](https://github.com/Sirosky)                    | Upscale (SR)          | Open-Proteus & AniScale 2    | [Upscale-Hub](https://github.com/Sirosky/Upscale-Hub)                      |
+| [Breakthrough](https://github.com/Breakthrough)          | Scene Detection (SBD) | PySceneDetect algorithm      | [PySceneDetect](https://github.com/Breakthrough/PySceneDetect)             |
+| [Wang et. al](https://doi.org/10.48550/arXiv.2604.24762) | Scene Detection (SBD) | OmniShotCut model            | [OmniShotCut](https://github.com/UVA-Computer-Vision-Lab/OmniShotCut)      |
 
 ## Framework & Tool Contributors
 
-| Contributor                                     | Contribution                 | Repository                                                     |
-| ----------------------------------------------- | ---------------------------- | -------------------------------------------------------------- |
-| [FFmpeg Group](https://github.com/FFmpeg)       | Video processing framework   | [FFmpeg](https://github.com/FFmpeg/FFmpeg)                     |
-| [Breakthrough](https://github.com/Breakthrough) | Scene detection algorithms   | [PySceneDetect](https://github.com/Breakthrough/PySceneDetect) |
-| [TNTWise](https://github.com/TNTwise)           | RIFE ONNX/NCNN optimizations | [GitHub](https://github.com/TNTwise)                           |
+| Contributor                         | Contribution                | Repository                                 |
+| ----------------------------------- | --------------------------- | ------------------------------------------ |
+| [FFmpeg Group](https://ffmpeg.org/) | Multimedia processing suite | [FFmpeg](https://github.com/FFmpeg/FFmpeg) |
