@@ -4,7 +4,8 @@ The Anime Scripter - AI Video Enhancement Toolkit
 A high-performance AI video enhancement toolkit specialized for anime and general video content.
 Provides professional-grade AI upscaling, interpolation, and restoration capabilities.
 
-Copyright (C) 2023-present Nilas Tiago
+Copyright (C) 2023-2025 Nilas Tiago
+Copyright (C) 2026-present TheRealMorgenfrue
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -25,6 +26,7 @@ Home: https://github.com/NevermindNilas/TheAnimeScripter
 import platform
 import warnings
 
+# Pydantic warns about "model" being a reserved name
 warnings.filterwarnings("ignore", module="pydantic")
 
 import os  # noqa: I001
@@ -125,7 +127,10 @@ def main():
             config = TASConfig()
             argument_handler = CLIArguments()
             arg_parser = argument_handler.create_argparser(
-                config, name=args.name, version=args._core_app_version
+                config.template,
+                sync_with_config=config,
+                name=args.name,
+                version=args._core_app_version,
             )
             args = arg_parser.parse_args()
             argument_handler.deserialize(args, config, merge=True)
@@ -135,7 +140,11 @@ def main():
             # TODO: Cleanup here. Destroy running processes etc.
             sys.exit(0)
         except Exception:
-            logger.critical(f"Fatal error in main execution\n{traceback.format_exc()}")
+            logger.critical(
+                f"Fatal error in main execution\n{traceback.format_exc()}",
+                gui=True,
+                pid=0,
+            )
             # TODO: Cleanup here. Destroy running processes etc.
             sys.exit(1)
 
