@@ -108,8 +108,10 @@ class VideoProcessor:
                 try:
                     current_frame = self.current_frame_buffer.get_nowait()
                 except queue.Empty:
-                    self.logger.error(
-                        "Current frame buffer is unexpectedly empty. This is very bad"
+                    self.logger.critical(
+                        "Current frame buffer is unexpectedly empty. This is very bad",
+                        gui=True,
+                        pid=0,
                     )
                     break
 
@@ -158,14 +160,18 @@ class VideoProcessor:
                 if frame is None:
                     # End of framebuffer
                     self.logger.warning(
-                        f"Frame buffer ended unexpectedly. The output is most likely incomplete. Processed {i} of {total_frames_to_process} frames"
+                        f"Frame buffer ended unexpectedly. The output is most likely incomplete. Processed {i} of {total_frames_to_process} frames",
+                        gui=True,
+                        pid=0,
                     )
                     break
 
                 self._process_frame(frame)
             self.write_buffer.close()
-        except Exception as e:
-            self.error_buffer.append(e)
+        except Exception:
+            self.logger.error(
+                f"Failed to process frame:\n{traceback.format_exc()}", gui=True, pid=0
+            )
 
     def start(self):
         """
@@ -193,6 +199,7 @@ class VideoProcessor:
 
         self.logger.info(
             f"Total Execution Time: {elapsed_time:.2f} seconds - FPS: {total_fps:.2f}",
+            pid=0,
         )
 
     def _run_with_profiler(self):
@@ -204,7 +211,9 @@ class VideoProcessor:
         profilePath = os.path.join(TASArgs.app_dir, "profiler_trace")
         os.makedirs(profilePath, exist_ok=True)
 
-        self.logger.info(f"Profiling enabled. Trace will be saved to: {profilePath}")
+        self.logger.info(
+            f"Profiling enabled. Trace will be saved to: {profilePath}", pid=0
+        )
 
         activities = [ProfilerActivity.CPU]
 
@@ -225,14 +234,14 @@ class VideoProcessor:
         traceFile = os.path.join(profilePath, "trace.json")
         prof.export_chrome_trace(traceFile)
 
-        self.logger.info("=== Profiler Summary (Top 20 by CUDA time) ===")
+        self.logger.info("=== Profiler Summary (Top 20 by CUDA time) ===", pid=0)
 
         try:
             sortKey = "cuda_time_total" if is_cuda_available else "cpu_time_total"
             summary = prof.key_averages().table(sort_by=sortKey, row_limit=20)
-            self.logger.info(f"Profiler Summary:\n\t{summary}")
+            self.logger.info(f"Profiler Summary:\n\t{summary}", pid=0)
         except Exception:
             self.logger.error(
-                f"Could not print profiler summary\n{traceback.format_exc()}"
+                f"Could not print profiler summary\n{traceback.format_exc()}", pid=0
             )
-        self.logger.info(f"Trace saved to: {traceFile}")
+        self.logger.info(f"Trace saved to: {traceFile}", pid=0)

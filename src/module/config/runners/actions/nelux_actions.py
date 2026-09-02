@@ -29,4 +29,6 @@ def set_nelux_log_level(level: str | int | nelux.LogLevel):
         try:
             nelux.set_log_level(_level)  # type: ignore
         except Exception:
-            logger.error(f"Failed to enable NeLux logging\n{traceback.format_exc()}")
+            logger.error(
+                f"Failed to enable NeLux logging\n{traceback.format_exc()}", gui=True
+            )

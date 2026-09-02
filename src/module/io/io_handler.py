@@ -189,7 +189,7 @@ class IOHandler:
         output_paths = []
         for path in input_paths:
             if not os.path.exists(path):
-                self.logger.warning(f"Path '{path}' not found. Skipping")
+                self.logger.warning(f"Path '{path}' not found. Skipping", pid=0)
                 continue
 
             if os.path.isdir(path):
@@ -227,9 +227,10 @@ class IOHandler:
 
         input_count = len(files)
         self.logger.info(
-            f"Found {input_count} video{'s' if input_count != 1 else ''} to process"
+            f"Found {input_count} video{'s' if input_count != 1 else ''} to process",
+            pid=0,
         )
-        self.logger.debug(f"Initializing output directory '{output_dir}'")
+        self.logger.debug(f"Initializing output directory '{output_dir}'", pid=0)
         os.makedirs(output_dir, exist_ok=True)
 
         return [

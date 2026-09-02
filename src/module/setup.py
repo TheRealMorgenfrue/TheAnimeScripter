@@ -15,12 +15,16 @@ def process_arguments():
     file_count = len(input_files)
 
     for i, path_config in enumerate(input_files, 1):
-        logger.info(f"({i}/{file_count}) Processing video '{path_config.input_path}'")
+        logger.info(
+            f"({i}/{file_count}) Processing video '{path_config.input_path}'", pid=0
+        )
         try:
             VideoProcessor(path_config)
         except Exception:
             logger.error(
-                f"Failed to process video '{path_config.input_path}'\n{traceback.format_exc()}"
+                f"Failed to process video '{path_config.input_path}'\n{traceback.format_exc()}",
+                gui=True,
+                pid=0,
             )
 
-    logger.info(f"Total execution time: {time() - start_time:.2f} s")
+    logger.info(f"Total execution time: {time() - start_time:.2f} s", pid=0)

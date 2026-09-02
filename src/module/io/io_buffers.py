@@ -96,8 +96,9 @@ class ReadBuffer:
                 self.cuda_norm_stream = torch.cuda.Stream()
                 self.device_type = "cuda"
             except Exception:
-                self._logger.error(
-                    f"CUDA stream initialization failed, falling back to CPU.\n{traceback.format_exc()}"
+                self.logger.error(
+                    f"CUDA stream initialization failed, falling back to CPU.\n{traceback.format_exc()}",
+                    pid=0,
                 )
 
     def __call__(self):
@@ -121,17 +122,19 @@ class ReadBuffer:
                         f"NeLux CPU retry failed:\n{traceback.format_exc()}"
                     )
 
-            self._logger.info("Attempting fallback to OpenCV decoder...")
+            self.logger.info("Attempting fallback to OpenCV decoder...", pid=0)
             try:
                 decoded_frames += self._decode_with_opencv()
             except Exception:
-                self._logger.error(f"OpenCV fallback failed:\n{traceback.format_exc()}")
+                self.logger.error(
+                    f"OpenCV fallback failed:\n{traceback.format_exc()}", pid=0
+                )
         finally:
             self.decode_buffer.put(None)
             self._frame_available.set()
 
             self.is_finished = True
-            self._logger.info(f"Decoded {decoded_frames} frames")
+            self.logger.debug(f"Decoded {decoded_frames} frames", pid=0)
 
     def _decode_with_nelux(self) -> int:
         """Returns the number of frames decoded."""
@@ -159,7 +162,9 @@ class ReadBuffer:
 
     def _decode_with_opencv(self) -> int:
         """Returns the number of frames decoded."""
-        self._logger.info(f"Initializing OpenCV VideoCapture for {self.input_path}")
+        self.logger.info(
+            f"Initializing OpenCV VideoCapture decoder for '{self.input_path}'", pid=0
+        )
 
         cap = cv2.VideoCapture(self.input_path)
         if not cap.isOpened():
@@ -551,7 +556,7 @@ class WriteBufferFFmpeg(WriteBuffer):
             custom_encoder_args.extend(["-vf", ",".join(filter_list)])
 
         if "-pix_fmt" not in custom_encoder_args:
-            self._logger.info(f"-pix_fmt was not found, adding {output_pix_fmt}.")
+            self._logger.info(f"-pix_fmt was not found, adding {output_pix_fmt}", pid=0)
             custom_encoder_args.extend(["-pix_fmt", output_pix_fmt])
 
         return custom_encoder_args
@@ -625,11 +630,12 @@ class WriteBufferFFmpeg(WriteBuffer):
 
             if needs_resize:
                 self._logger.warning(
-                    f"Frame size mismatch. Frame: {initial_frame.shape[3]}x{initial_frame.shape[2]}, Output: {self.width}x{self.height}"
+                    f"Frame size mismatch. Frame: {initial_frame.shape[2]}x{initial_frame.shape[1]}, Output: {self.width}x{self.height}",
+                    pid=0,
                 )
 
             command = self._encode_settings()
-            self._logger.debug(f"Encode command: {' '.join(map(str, command))}")
+            self._logger.debug(f"Encode command: {' '.join(map(str, command))}", pid=0)
 
             use_cuda = False
             transfer_stream = None
@@ -639,7 +645,8 @@ class WriteBufferFFmpeg(WriteBuffer):
                     use_cuda = True
                 except Exception as e:
                     self._logger.error(
-                        f"CUDA init failed in writer, using CPU path. Reason: {e}"
+                        f"CUDA init failed in writer, using CPU path. Reason: {e}",
+                        pid=0,
                     )
                     use_cuda = False
 
@@ -702,9 +709,9 @@ class WriteBufferFFmpeg(WriteBuffer):
                     )
                     ffmpeg_proc.stdin.write(memoryview(out_frame.cpu().numpy()))  # type: ignore
                     written_frames += 1
-            self._logger.debug(f"Encoded {written_frames} frames")
+            self._logger.debug(f"Encoded {written_frames} frames", pid=0)
         except Exception:
-            self._logger.error(f"Encoding error:\n{traceback.format_exc()}")
+            self._logger.error(f"Encoding error:\n{traceback.format_exc()}", pid=0)
         finally:
             try:
                 if ffmpeg_proc is not None and ffmpeg_proc.stdin:
@@ -712,7 +719,7 @@ class WriteBufferFFmpeg(WriteBuffer):
                 if ffmpeg_proc is not None:
                     ffmpeg_proc.wait(timeout=3)
             except Exception:
-                self._logger.error(f"Cleanup error:\n{traceback.format_exc()}")
+                self._logger.error(f"Cleanup error:\n{traceback.format_exc()}", pid=0)
 
 
 class WriteBufferNeLux(WriteBuffer):

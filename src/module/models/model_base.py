@@ -252,6 +252,8 @@ class ModelBase:
             io_binding.bind_input(**ib.get_raw())
         for ob in output_bindings:
             io_binding.bind_output(**ob.get_raw())
+
+        self.logger.debug("Applied IO bindings", pid=0)
         return io_binding
 
     def declare_io_bindings(
