@@ -211,6 +211,92 @@ class ReadBuffer:
             cap.release()
         return decoded_frames
 
+    def _decode_with_ffmpeg(self) -> int:
+        use_hardware_accel = "nvdec" in self.decode_method
+        command = [
+            self._config["ffmpeg"],
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "quiet",
+            "-nostats",
+            "-threads",
+            "0",
+            "-filter_threads",
+            "0",
+        ]
+
+        if use_hardware_accel:
+            command.extend(
+                [
+                    "-init_hw_device",
+                    "cuda=cuda_:0,primary_ctx=1",
+                    "-hwaccel",
+                    "cuda",
+                    "-hwaccel_device",
+                    "cuda_",
+                    "-filter_hw_device",
+                    "cuda_",
+                ]
+            )
+
+        command.extend(
+            [
+                "-i",
+                f"{self.input_path}",
+                "-fps_mode",  # "passthrough" equivalent to "-vsync 0"
+                "passthrough",
+            ]
+        )
+
+        # TODO: rgb24 is for 8-bit input. rgb48le might be 16-bit?
+        command.extend(["-pix_fmt", "rgb24", "-f", "rawvideo", "pipe:1"])
+
+        self.logger.debug(f"Decode command: {' '.join(map(str, command))}", pid=0)
+
+        ffmpeg_proc = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=False,
+            bufsize=io.DEFAULT_BUFFER_SIZE,
+        )
+
+        decoded_frames = 0
+
+        # self._logger.error(ffmpeg_proc.stderr.readlines())
+
+        try:
+            while True:
+                if ffmpeg_proc.stdout and ffmpeg_proc.stdout.closed:
+                    self.logger.debug("Decode pipe closed", pid=0)
+                    break
+
+                raw_frame = ffmpeg_proc.stdout.read(self.width * self.height * 3)
+
+                if not raw_frame:
+                    break
+
+                np_frame = np.frombuffer(raw_frame, dtype=np.uint8).reshape(
+                    (self.height, self.width, 3)
+                )
+                frame = self._convert_frame_format(
+                    torch.from_numpy(np_frame.copy()),
+                    self.cuda_norm_stream,
+                )
+                self.decode_buffer.put(frame)
+                self._frame_available.set()
+                decoded_frames += 1
+        finally:
+            try:
+                if ffmpeg_proc is not None and ffmpeg_proc.stdout:
+                    ffmpeg_proc.stdout.close()
+                if ffmpeg_proc is not None:
+                    ffmpeg_proc.wait(timeout=3)
+            except Exception:
+                self.logger.error(f"Cleanup error:\n{traceback.format_exc()}", pid=0)
+        return decoded_frames
+
     def _convert_frame_format(
         self,
         frame: Tensor,
