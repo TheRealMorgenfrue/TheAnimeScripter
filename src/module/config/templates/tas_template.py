@@ -189,6 +189,14 @@ class TASTemplate(BaseTemplate):
                 ),
             },
             "Performance": {
+                "devices": CheckListOption(
+                    default=[],
+                    values=[
+                        device.name
+                        for device in HardwareChecker().detect_device_architectures()
+                    ],
+                    validators=validate_devices,
+                ),
                 "decode_method": ComboBoxOption(
                     default="cpu",
                     values=["cpu", "nvdec"],
@@ -222,27 +230,6 @@ class TASTemplate(BaseTemplate):
                         ),
                     ),
                     validators=validate_precision,
-                ),
-                # TODO: Make option to use all available GPUs (i.e. all available execution providers)
-                "execution_providers": CheckListOption(
-                    default=["CPUExecutionProvider"],
-                    converter=GenericConverter(
-                        [
-                            "CPUExecutionProvider",
-                            "CUDAExecutionProvider",
-                            "TensorrtExecutionProvider",
-                            "OpenVINOExecutionProvider",
-                            "MIGraphXExecutionProvider",
-                        ],
-                        ["CPU", "CUDA", "TensorRT", "OpenVINO", "MIGraphX"],
-                    ),
-                    values=[
-                        "CPUExecutionProvider",
-                        "CUDAExecutionProvider",
-                        "TensorrtExecutionProvider",
-                        "OpenVINOExecutionProvider",
-                        "MIGraphXExecutionProvider",
-                    ],
                 ),
                 "profile": Option(
                     default=False,
