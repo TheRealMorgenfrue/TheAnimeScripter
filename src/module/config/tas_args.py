@@ -29,6 +29,11 @@ class TASArgs:
     assets_dir = Path(app_dir, "src", "assets")
     logo_dir = Path(assets_dir, "logos")
 
+    # Cache paths
+    cache_dir = f"{Path(app_dir, 'tas_cache')}"
+    trt_cache_dir = f"{Path(cache_dir, 'trt_engines')}"
+    trt_timing_cache_dir = trt_cache_dir
+
     # Asset paths
     tas_main_logo = f"{logo_dir.joinpath('icon.png')}"
 
